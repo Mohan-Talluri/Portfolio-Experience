@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "The Explorer"
+version = "1.0.0"
+id = "artifacts/the-explorer"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22716
+
+[services.development]
+run = "pnpm --filter @workspace/the-explorer run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/the-explorer", "run", "build" ]
+publicDir = "artifacts/the-explorer/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22716"
+BASE_PATH = "/"

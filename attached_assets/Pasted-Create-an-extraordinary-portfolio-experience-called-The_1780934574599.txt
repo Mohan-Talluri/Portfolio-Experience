@@ -1,0 +1,197 @@
+Create an extraordinary portfolio experience called "The Explorer".
+
+This is NOT a traditional portfolio website. It should feel like an interactive journey through a futuristic solar system representing a person's growth, ambitions, and discoveries.
+
+IMPORTANT:
+
+* Do NOT generate any personal information.
+* Do NOT generate placeholder AI biographies.
+* Do NOT generate fake projects.
+* Do NOT generate random motivational text.
+* Use clearly marked placeholders only.
+* Focus entirely on visual design, interaction design, animation, atmosphere, and technical execution.
+
+TECH STACK:
+
+* Next.js
+* Tailwind CSS
+* Framer Motion
+* Three.js / React Three Fiber
+* GSAP where appropriate
+* Advanced WebGL effects
+* Fully responsive
+* Optimized performance
+* Smooth 60fps interactions
+
+OVERALL VISION:
+
+The user arrives in deep space.
+
+The experience should immediately feel premium, cinematic, and memorable.
+
+The page should have:
+
+* Massive depth
+* Multi-layer parallax
+* Atmospheric particles
+* Nebula clouds
+* Dynamic stars
+* Volumetric lighting effects
+* Floating cosmic dust
+* Subtle camera motion
+
+The site should feel alive even when the user is not interacting.
+
+SCROLL EXPERIENCE:
+
+Scrolling should feel like piloting through a solar system.
+
+Instead of normal sections:
+
+* Each major section exists as a celestial body.
+* Camera movement should create a sense of travel.
+* Distances should feel large.
+* Motion should be smooth and cinematic.
+
+ADVANCED PARALLAX:
+
+Implement multiple independent depth layers:
+
+Layer 1:
+Distant stars moving extremely slowly.
+
+Layer 2:
+Nebula clouds moving independently.
+
+Layer 3:
+Particle systems.
+
+Layer 4:
+Foreground cosmic dust.
+
+Layer 5:
+Floating 3D objects.
+
+Layer 6:
+Interactive section planets.
+
+Every layer should move at different speeds.
+
+3D PLANETS:
+
+Create several unique planets.
+
+Each planet should have:
+
+* Different materials
+* Unique atmospheres
+* Dynamic lighting
+* Rotational animation
+* Surface detail
+* Glow effects
+
+Do not use generic spheres.
+
+Make them feel handcrafted.
+
+SECTION PLACEHOLDERS:
+
+Planet 1:
+[HERO_PLACEHOLDER]
+
+Planet 2:
+[ABOUT_PLACEHOLDER]
+
+Planet 3:
+[SKILLS_PLACEHOLDER]
+
+Planet 4:
+[PROJECTS_PLACEHOLDER]
+
+Planet 5:
+[TIMELINE_PLACEHOLDER]
+
+Planet 6:
+[DREAMS_PLACEHOLDER]
+
+Planet 7:
+[CONTACT_PLACEHOLDER]
+
+Use placeholder labels only.
+
+ADVANCED INTERACTIONS:
+
+* Camera subtly follows cursor movement.
+* Planet hover reactions.
+* Dynamic lighting shifts.
+* Smooth zoom transitions.
+* Inertia-based motion.
+* Physics-inspired movement.
+* Depth-of-field effects.
+* Environmental reflections.
+
+MICROANIMATIONS:
+
+Every element should have:
+
+* Hover states
+* Entrance animations
+* Exit animations
+* Motion blur
+* Smooth easing
+
+Avoid abrupt movement.
+
+VISUAL QUALITY TARGET:
+
+The result should feel closer to:
+
+* An interactive digital art installation
+* A premium product launch website
+* A cinematic game menu
+
+and NOT like:
+
+* A portfolio template
+* A Bootstrap website
+* A student project
+
+COLOR SYSTEM:
+
+Deep space background.
+
+Rich cosmic colors:
+
+* Indigo
+* Violet
+* Cyan
+* Electric blue
+* Soft white
+
+Avoid oversaturated neon.
+
+Use premium cinematic color grading.
+
+TYPOGRAPHY:
+
+Minimal.
+
+Large.
+
+Elegant.
+
+Allow visuals to dominate.
+
+PERFORMANCE REQUIREMENTS:
+
+* Lazy load heavy assets.
+* GPU optimized.
+* Mobile responsive.
+* Maintain smooth performance.
+* Graceful degradation for weaker devices.
+
+FINAL GOAL:
+
+Visitors should feel like they are exploring a living universe rather than browsing a website.
+
+The experience must be memorable even before any actual portfolio content is added.
