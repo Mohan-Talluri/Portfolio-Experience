@@ -51,46 +51,57 @@ const PLANET_CONFIGS = [
 
 function CameraRig({ activeSection }: { activeSection: number }) {
   const { camera, pointer } = useThree();
-  const dummyCamera = useRef(new THREE.PerspectiveCamera());
-  const scrollPos = useRef(0);
+  const scrollPos   = useRef(0);
+  const targetPos   = useRef(new THREE.Vector3());
   const targetLookAt = useRef(new THREE.Vector3());
+  const pointerLag  = useRef(new THREE.Vector2());
 
   useEffect(() => {
     const handleScroll = () => {
       const maxScroll = document.body.scrollHeight - window.innerHeight;
-      scrollPos.current = window.scrollY / maxScroll;
+      scrollPos.current = window.scrollY / Math.max(maxScroll, 1);
     };
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   useFrame((state, delta) => {
+    const t = state.clock.elapsedTime;
+
+    // Lazy pointer tracking (inertia)
+    pointerLag.current.lerp(pointer, delta * 1.8);
+
     const totalSegments = PLANET_POSITIONS.length - 1;
-    const scaledScroll = scrollPos.current * totalSegments;
-    const index = Math.floor(scaledScroll);
+    const scaledScroll  = scrollPos.current * totalSegments;
+    const index    = Math.min(Math.floor(scaledScroll), totalSegments - 1);
     const fraction = scaledScroll - index;
 
-    let currentPos, nextPos;
-    if (index >= totalSegments) {
-      currentPos = PLANET_POSITIONS[totalSegments];
-      nextPos = PLANET_POSITIONS[totalSegments];
-    } else {
-      currentPos = PLANET_POSITIONS[index];
-      nextPos = PLANET_POSITIONS[index + 1];
-    }
+    const currentPos = PLANET_POSITIONS[index];
+    const nextPos    = index < totalSegments ? PLANET_POSITIONS[index + 1] : PLANET_POSITIONS[totalSegments];
 
-    // Camera paths
-    const camOffset = new THREE.Vector3(0, 0, 15);
-    const targetCamPos = currentPos.clone().lerp(nextPos, fraction).add(camOffset);
-    
-    // Parallax
-    targetCamPos.x += pointer.x * 2;
-    targetCamPos.y += pointer.y * 2;
+    // Slight curved arc between planets (not a straight line)
+    const mid = currentPos.clone().lerp(nextPos, 0.5).add(new THREE.Vector3(0, 1.5, 0));
+    const eased = fraction * fraction * (3 - 2 * fraction); // smoothstep
+    const pathPos = new THREE.Vector3();
+    pathPos.lerpVectors(currentPos.clone().lerp(nextPos, eased), mid, Math.sin(eased * Math.PI) * 0.25);
 
-    camera.position.lerp(targetCamPos, delta * 2);
+    // Floating idle drift
+    const drift = new THREE.Vector3(
+      Math.sin(t * 0.22) * 0.35,
+      Math.cos(t * 0.17) * 0.25,
+      Math.sin(t * 0.13) * 0.15,
+    );
 
-    const lookAtTarget = currentPos.clone().lerp(nextPos, fraction);
-    targetLookAt.current.lerp(lookAtTarget, delta * 3);
+    const targetCamPos = pathPos.clone()
+      .add(new THREE.Vector3(0, 0, 14))
+      .add(drift)
+      .add(new THREE.Vector3(pointerLag.current.x * 1.8, pointerLag.current.y * 1.4, 0));
+
+    // Slow inertial camera — feels like floating through space
+    camera.position.lerp(targetCamPos, delta * 1.1);
+
+    const lookTarget = currentPos.clone().lerp(nextPos, eased);
+    targetLookAt.current.lerp(lookTarget, delta * 2.2);
     camera.lookAt(targetLookAt.current);
   });
 

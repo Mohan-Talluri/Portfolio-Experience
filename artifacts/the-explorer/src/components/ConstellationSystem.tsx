@@ -80,8 +80,8 @@ export default function ConstellationSystem({ activeSection }: { activeSection: 
       const isActive = activeSection === c.targetSection;
       
       // Pulse animation
-      const baseOpacity = isActive ? 0.8 : 0.2;
-      const pulse = Math.sin(time * 0.8 + i) * 0.2;
+      const baseOpacity = isActive ? 0.32 : 0.07;
+      const pulse = Math.sin(time * 0.6 + i) * 0.06;
       
       // Lerp opacity for smooth transition
       mat.opacity += ((baseOpacity + pulse) - mat.opacity) * 0.05;

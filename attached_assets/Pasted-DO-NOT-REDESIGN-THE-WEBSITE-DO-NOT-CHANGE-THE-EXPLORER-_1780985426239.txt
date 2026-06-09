@@ -1,0 +1,230 @@
+DO NOT REDESIGN THE WEBSITE.
+
+DO NOT CHANGE THE EXPLORER CONCEPT.
+
+DO NOT REPLACE THE PLANET-TO-PLANET NAVIGATION.
+
+KEEP:
+
+* current scrolling system
+* current navigation structure
+* current camera travel between planets
+
+The user should still travel from planet to planet.
+
+================================================
+
+CRITICAL PROBLEM
+
+================================================
+
+The planets currently look like flat glowing circles.
+
+The universe looks like SVG graphics layered on a background.
+
+The site has lost its premium cinematic quality.
+
+The goal is NOT more effects.
+
+The goal is BETTER planets.
+
+================================================
+
+PLANET REQUIREMENTS
+
+================================================
+
+Replace all fake planet graphics.
+
+Do not use:
+
+* SVG circles
+* CSS circles
+* flat gradients
+* simple glowing discs
+
+Create proper 3D celestial bodies.
+
+Every planet should have:
+
+* surface texture
+* roughness variation
+* atmospheric glow
+* cloud systems
+* normal maps
+* specular highlights
+* shadowing
+* volumetric depth
+
+Planets must look like physical objects.
+
+================================================
+
+PLANET STYLE
+
+================================================
+
+Target:
+
+AAA sci-fi game quality.
+
+Examples:
+
+* Destiny
+* Mass Effect
+* No Man's Sky
+* Interstellar-inspired visuals
+
+Avoid:
+
+* infographic planets
+* cartoon planets
+* placeholder circles
+
+================================================
+
+PLANET IDENTITIES
+
+================================================
+
+Each planet must feel unique.
+
+Examples:
+
+Dream Planet:
+purple atmosphere
+
+Skills Planet:
+electric blue storms
+
+Projects Planet:
+orange volcanic regions
+
+Timeline Planet:
+ancient rings
+
+Contact Planet:
+crystalline atmosphere
+
+No two planets should feel identical.
+
+================================================
+
+ATMOSPHERES
+
+================================================
+
+Every planet should have:
+
+* atmospheric scattering
+* horizon glow
+* rim lighting
+* light diffusion
+
+The atmosphere should react to nearby stars.
+
+================================================
+
+SPACE BACKGROUND
+
+================================================
+
+Remove decorative circles and fake lens flares.
+
+Replace with:
+
+* realistic nebulae
+* distant galaxies
+* deep star fields
+* cosmic dust
+
+Everything should feel far away.
+
+================================================
+
+CONSTELLATIONS
+
+================================================
+
+Constellations should NOT dominate the screen.
+
+They are background details.
+
+Reduce visual noise.
+
+Constellations should:
+
+* appear naturally
+* be subtle
+* softly animate
+* occasionally pulse
+
+Never cover planets.
+
+Never become the main visual element.
+
+================================================
+
+CAMERA
+
+================================================
+
+Increase cinematic feeling.
+
+Add:
+
+* smooth inertia
+* subtle drift
+* floating movement
+* cinematic transitions
+
+Travel between planets should feel like moving through space.
+
+================================================
+
+PARALLAX
+
+================================================
+
+Implement true depth.
+
+Separate:
+
+* galaxies
+* nebulae
+* stars
+* dust
+* planets
+* UI
+
+Every layer moves differently.
+
+================================================
+
+INTERACTION
+
+================================================
+
+Mouse movement should:
+
+* slightly rotate planets
+* affect atmosphere particles
+* create subtle stardust trails
+
+Never create excessive particle spam.
+
+Premium and elegant.
+
+================================================
+
+FINAL GOAL
+
+================================================
+
+The user should feel like they are navigating between real planets suspended in a living universe.
+
+The experience should feel closer to a game environment than a website.
+
+Prioritize realism, depth, atmosphere, and cinematic quality.
+
+Remove anything that feels like SVG graphics, placeholder graphics, or old-school web effects.
