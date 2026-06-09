@@ -1,15 +1,14 @@
 import React, { useRef, useEffect, Component, type ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE from "three";
 import StarField from "./StarField";
-import NebulaCloud from "./NebulaCloud";
 import Planet from "./planets/Planet";
 import SpaceFallback from "./SpaceFallback";
-import GalaxyLayer from "./GalaxyLayer";
 import ConstellationSystem from "./ConstellationSystem";
 import SpaceEvents from "./SpaceEvents";
 import StardustTrail from "./StardustTrail";
+import BlackHole from "./BlackHole";
 
 class WebGLErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   constructor(props: { children: ReactNode }) {
@@ -40,155 +39,104 @@ export const PLANET_CONFIGS = [
   { color: "#8B0D40", type: "projects", size: 3.8 },
   { color: "#C8D8F0", type: "timeline", size: 2.2 },
   { color: "#7C3FB8", type: "dreams",   size: 3.0 },
-  { color: "#F0F4FF", type: "contact",  size: 1.8, emissive: 2 },
+  { color: "#F0F4FF", type: "contact",  size: 1.8 },
 ];
 
-// ──────────────────────────────────────────────
-// Premium camera with inertia, momentum, drift
-// ──────────────────────────────────────────────
+// ─── Camera: spring-damper inertia + organic drift ────────────────────────────
 function CameraRig({ activeSection }: { activeSection: number }) {
   const { camera, pointer } = useThree();
-
-  const scrollPos     = useRef(0);
-  const camPos        = useRef(new THREE.Vector3(0, 0, 16));
-  const camVel        = useRef(new THREE.Vector3());
-  const pointerLag    = useRef(new THREE.Vector2());
-  const pointerVel    = useRef(new THREE.Vector2());
-  const lookTarget    = useRef(new THREE.Vector3());
-  const lookVel       = useRef(new THREE.Vector3());
-  const driftPhase    = useRef(Math.random() * Math.PI * 2);
+  const scrollPos   = useRef(0);
+  const camPos      = useRef(new THREE.Vector3(0, 0, 16));
+  const camVel      = useRef(new THREE.Vector3());
+  const ptrLag      = useRef(new THREE.Vector2());
+  const ptrVel      = useRef(new THREE.Vector2());
+  const lookTgt     = useRef(new THREE.Vector3());
+  const lookVel     = useRef(new THREE.Vector3());
+  const driftSeed   = useRef(Math.random() * 6.28);
 
   useEffect(() => {
-    const onScroll = () => {
-      const maxScroll = document.body.scrollHeight - window.innerHeight;
-      scrollPos.current = window.scrollY / Math.max(maxScroll, 1);
+    const fn = () => {
+      const max = document.body.scrollHeight - window.innerHeight;
+      scrollPos.current = window.scrollY / Math.max(max, 1);
     };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    window.addEventListener("scroll", fn, { passive: true });
+    return () => window.removeEventListener("scroll", fn);
   }, []);
 
   useFrame((state, delta) => {
-    const t = state.clock.elapsedTime;
-    const dt = Math.min(delta, 0.05); // cap to avoid large jumps
-
-    // ── Scroll interpolation along path ──
-    const totalSegs = PLANET_POSITIONS.length - 1;
-    const scaled    = scrollPos.current * totalSegs;
-    const idx       = Math.min(Math.floor(scaled), totalSegs - 1);
-    const frac      = scaled - idx;
+    const t   = state.clock.elapsedTime;
+    const dt  = Math.min(delta, 0.05);
+    const N   = PLANET_POSITIONS.length - 1;
+    const sc  = scrollPos.current * N;
+    const idx = Math.min(Math.floor(sc), N - 1);
+    const fr  = sc - idx;
 
     const cur  = PLANET_POSITIONS[idx];
-    const next = PLANET_POSITIONS[Math.min(idx + 1, totalSegs)];
+    const nxt  = PLANET_POSITIONS[Math.min(idx + 1, N)];
+    const ease = fr * fr * (3 - 2 * fr);
 
-    // Smoothstep easing between planets
-    const eased = frac * frac * (3 - 2 * frac);
+    const pathP = new THREE.Vector3().lerpVectors(cur, nxt, ease);
+    pathP.y += Math.sin(ease * Math.PI) * 1.0;
 
-    // Catmull-Rom-like arc — slight upward bow on transit
-    const pathPos = new THREE.Vector3().lerpVectors(cur, next, eased);
-    const arcLift = Math.sin(eased * Math.PI) * 1.2;
-    pathPos.y += arcLift;
+    // Pointer spring
+    const pd = new THREE.Vector2(pointer.x - ptrLag.current.x, pointer.y - ptrLag.current.y);
+    ptrVel.current.addScaledVector(pd, dt * 14);
+    ptrVel.current.multiplyScalar(1 - dt * 7);
+    ptrLag.current.addScaledVector(ptrVel.current, dt);
 
-    // ── Pointer inertia (spring-damper) ──
-    const pointerDelta = new THREE.Vector2(
-      pointer.x - pointerLag.current.x,
-      pointer.y - pointerLag.current.y,
-    );
-    pointerVel.current.addScaledVector(pointerDelta, dt * 12);
-    pointerVel.current.multiplyScalar(1 - dt * 6);
-    pointerLag.current.addScaledVector(pointerVel.current, dt);
-
-    // ── Organic floating drift ──
-    const dp = driftPhase.current;
+    // Organic drift
+    const ds = driftSeed.current;
     const drift = new THREE.Vector3(
-      Math.sin(t * 0.19 + dp)        * 0.30,
-      Math.cos(t * 0.14 + dp * 1.3)  * 0.22,
-      Math.sin(t * 0.10 + dp * 0.7)  * 0.12,
+      Math.sin(t * 0.18 + ds)       * 0.28,
+      Math.cos(t * 0.13 + ds * 1.3) * 0.20,
+      Math.sin(t * 0.09 + ds * 0.7) * 0.10,
     );
 
-    // ── Mouse parallax offset ──
-    const parallax = new THREE.Vector3(
-      pointerLag.current.x * 2.2,
-      pointerLag.current.y * 1.6,
-      0,
-    );
-
-    const desiredPos = pathPos.clone()
+    const desired = pathP.clone()
       .add(new THREE.Vector3(0, 0, 16))
       .add(drift)
-      .add(parallax);
+      .add(new THREE.Vector3(ptrLag.current.x * 2.0, ptrLag.current.y * 1.5, 0));
 
-    // ── Spring camera to desired position (gives momentum/inertia) ──
-    const springK  = 3.5;   // stiffness
-    const dampC    = 0.85;  // damping
-    const disp     = desiredPos.clone().sub(camPos.current);
-    camVel.current.addScaledVector(disp, springK * dt);
-    camVel.current.multiplyScalar(1 - dampC * dt);
+    // Spring toward desired (gives momentum + inertia feel)
+    const disp = desired.clone().sub(camPos.current);
+    camVel.current.addScaledVector(disp, 3.2 * dt);
+    camVel.current.multiplyScalar(1 - 0.88 * dt);
     camPos.current.addScaledVector(camVel.current, dt);
-
     camera.position.copy(camPos.current);
 
-    // ── Look-at with spring ──
-    const desiredLook = new THREE.Vector3().lerpVectors(cur, next, eased);
-    const lookDisp = desiredLook.clone().sub(lookTarget.current);
-    lookVel.current.addScaledVector(lookDisp, 8 * dt);
-    lookVel.current.multiplyScalar(1 - 5.5 * dt);
-    lookTarget.current.addScaledVector(lookVel.current, dt);
-
-    camera.lookAt(lookTarget.current);
+    // Look-at spring
+    const desiredLook = new THREE.Vector3().lerpVectors(cur, nxt, ease);
+    const ld = desiredLook.clone().sub(lookTgt.current);
+    lookVel.current.addScaledVector(ld, 8 * dt);
+    lookVel.current.multiplyScalar(1 - 5 * dt);
+    lookTgt.current.addScaledVector(lookVel.current, dt);
+    camera.lookAt(lookTgt.current);
   });
 
   return null;
 }
 
-// ──────────────────────────────────────────────
-// Parallax wrapper — moves child group based on
-// scroll & pointer with independent depth factor
-// ──────────────────────────────────────────────
-function ParallaxGroup({
-  children,
-  depthFactor,
-  scrollFactor = 0,
-}: {
-  children: React.ReactNode;
-  depthFactor: number;
-  scrollFactor?: number;
-}) {
-  const groupRef = useRef<THREE.Group>(null);
-  const scrollPos = useRef(0);
+// ─── Multi-layer parallax group ───────────────────────────────────────────────
+function ParallaxGroup({ children, depth }: { children: ReactNode; depth: number }) {
+  const ref = useRef<THREE.Group>(null);
   const { pointer } = useThree();
   const offset = useRef(new THREE.Vector3());
 
-  useEffect(() => {
-    const onScroll = () => {
-      const maxScroll = document.body.scrollHeight - window.innerHeight;
-      scrollPos.current = window.scrollY / Math.max(maxScroll, 1);
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
   useFrame((_, delta) => {
-    if (!groupRef.current) return;
     const dt = Math.min(delta, 0.05);
-    const target = new THREE.Vector3(
-      pointer.x * depthFactor * 8,
-      pointer.y * depthFactor * 6,
-      scrollPos.current * scrollFactor,
-    );
-    offset.current.lerp(target, dt * 0.8);
-    groupRef.current.position.copy(offset.current);
+    const tgt = new THREE.Vector3(pointer.x * depth * 7, pointer.y * depth * 5, 0);
+    offset.current.lerp(tgt, dt * 0.9);
+    if (ref.current) ref.current.position.copy(offset.current);
   });
 
-  return <group ref={groupRef}>{children}</group>;
+  return <group ref={ref}>{children}</group>;
 }
 
 function webGLAvailable() {
   try {
     const c = document.createElement("canvas");
-    return !!(
-      window.WebGLRenderingContext &&
-      (c.getContext("webgl") || c.getContext("experimental-webgl"))
-    );
+    return !!(window.WebGLRenderingContext &&
+      (c.getContext("webgl") || c.getContext("experimental-webgl")));
   } catch { return false; }
 }
 
@@ -199,39 +147,36 @@ export default function SpaceScene({ activeSection }: { activeSection: number })
     <WebGLErrorBoundary>
       <>
         <Canvas
-          camera={{ position: [0, 0, 16], fov: 42 }}
-          gl={{ antialias: true, powerPreference: "high-performance", alpha: false }}
-          dpr={[1, 1.5]}
+          camera={{ position: [0, 0, 16], fov: 44 }}
+          gl={{
+            antialias: false,
+            powerPreference: "high-performance",
+            alpha: true,            // transparent canvas — shows SpaceBackground behind
+          }}
+          dpr={1.5}                 // fixed DPR — no resize flicker
         >
-          <color attach="background" args={["#010309"]} />
-          <ambientLight intensity={0.04} />
-          <directionalLight position={[20, 15, 10]} intensity={1.2} color="#fff5ee" />
-          <pointLight position={[0, 0, 0]} intensity={0.15} color="#6688ff" distance={80} />
+          {/* No background color — SpaceBackground HTML canvas shows through */}
+          <ambientLight intensity={0.05} />
+          <directionalLight position={[20, 15, 10]} intensity={1.3} color="#fff8f0" />
+          <pointLight position={[0, 0, 0]} intensity={0.12} color="#6688ff" distance={60} />
 
-          {/* Layer 1 — deepest: galaxies, barely moves */}
-          <ParallaxGroup depthFactor={0.04} scrollFactor={0}>
-            <GalaxyLayer />
-          </ParallaxGroup>
-
-          {/* Layer 2 — nebulae: slow parallax */}
-          <ParallaxGroup depthFactor={0.12} scrollFactor={0}>
-            <NebulaCloud />
-          </ParallaxGroup>
-
-          {/* Layer 3 — starfield: four internal depth layers */}
-          <ParallaxGroup depthFactor={0.20} scrollFactor={0}>
+          {/* Layer 1 – deep background stars (barely move) */}
+          <ParallaxGroup depth={0.08}>
             <StarField />
           </ParallaxGroup>
 
-          {/* Layer 4 — constellations: moderate depth */}
-          <ParallaxGroup depthFactor={0.30} scrollFactor={0}>
+          {/* Layer 2 – constellations */}
+          <ParallaxGroup depth={0.22}>
             <ConstellationSystem activeSection={activeSection} />
           </ParallaxGroup>
 
-          {/* Layer 5 — space events: same depth as planets */}
+          {/* Layer 3 – space events */}
           <SpaceEvents />
 
-          {/* Layer 6 — planets */}
+          {/* Black hole — interactive, deep in scene */}
+          <BlackHole position={[-20, 9, -38]} />
+
+          {/* Layer 4 – planets */}
           {PLANET_POSITIONS.map((pos, i) => (
             <Planet
               key={i}
@@ -243,18 +188,18 @@ export default function SpaceScene({ activeSection }: { activeSection: number })
 
           <CameraRig activeSection={activeSection} />
 
+          {/* Post-processing — higher threshold stops bloom flickering */}
           <EffectComposer>
             <Bloom
-              luminanceThreshold={0.15}
-              luminanceSmoothing={0.85}
-              intensity={1.8}
-              height={400}
+              luminanceThreshold={0.55}
+              luminanceSmoothing={0.92}
+              intensity={1.4}
+              height={350}
             />
-            <Vignette eskil={false} offset={0.15} darkness={1.05} />
           </EffectComposer>
         </Canvas>
 
-        {/* Layer 7 — foreground UI particle dust */}
+        {/* Foreground cosmic dust trail */}
         <StardustTrail />
       </>
     </WebGLErrorBoundary>

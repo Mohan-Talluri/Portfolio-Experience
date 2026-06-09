@@ -16,656 +16,392 @@ interface PlanetProps {
   active: boolean;
 }
 
-const NOISE_GLSL = `
-vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x,289.0);}
-vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-0.85373472095314*r;}
-vec3 fade(vec3 t){return t*t*t*(t*(t*6.0-15.0)+10.0);}
-
-float cnoise(vec3 P){
-  vec3 Pi0=floor(P);vec3 Pi1=Pi0+vec3(1.0);
-  Pi0=mod(Pi0,289.0);Pi1=mod(Pi1,289.0);
-  vec3 Pf0=fract(P);vec3 Pf1=Pf0-vec3(1.0);
-  vec4 ix=vec4(Pi0.x,Pi1.x,Pi0.x,Pi1.x);
-  vec4 iy=vec4(Pi0.yy,Pi1.yy);
-  vec4 iz0=Pi0.zzzz;vec4 iz1=Pi1.zzzz;
-  vec4 ixy=permute(permute(ix)+iy);
-  vec4 ixy0=permute(ixy+iz0);vec4 ixy1=permute(ixy+iz1);
-  vec4 gx0=ixy0/7.0;vec4 gy0=fract(floor(gx0)/7.0)-0.5;
-  gx0=fract(gx0);vec4 gz0=vec4(0.5)-abs(gx0)-abs(gy0);
-  vec4 sz0=step(gz0,vec4(0.0));
-  gx0-=sz0*(step(0.0,gx0)-0.5);gy0-=sz0*(step(0.0,gy0)-0.5);
-  vec4 gx1=ixy1/7.0;vec4 gy1=fract(floor(gx1)/7.0)-0.5;
-  gx1=fract(gx1);vec4 gz1=vec4(0.5)-abs(gx1)-abs(gy1);
-  vec4 sz1=step(gz1,vec4(0.0));
-  gx1-=sz1*(step(0.0,gx1)-0.5);gy1-=sz1*(step(0.0,gy1)-0.5);
-  vec3 g000=vec3(gx0.x,gy0.x,gz0.x);vec3 g100=vec3(gx0.y,gy0.y,gz0.y);
-  vec3 g010=vec3(gx0.z,gy0.z,gz0.z);vec3 g110=vec3(gx0.w,gy0.w,gz0.w);
-  vec3 g001=vec3(gx1.x,gy1.x,gz1.x);vec3 g101=vec3(gx1.y,gy1.y,gz1.y);
-  vec3 g011=vec3(gx1.z,gy1.z,gz1.z);vec3 g111=vec3(gx1.w,gy1.w,gz1.w);
-  vec4 norm0=taylorInvSqrt(vec4(dot(g000,g000),dot(g010,g010),dot(g100,g100),dot(g110,g110)));
-  g000*=norm0.x;g010*=norm0.y;g100*=norm0.z;g110*=norm0.w;
-  vec4 norm1=taylorInvSqrt(vec4(dot(g001,g001),dot(g011,g011),dot(g101,g101),dot(g111,g111)));
-  g001*=norm1.x;g011*=norm1.y;g101*=norm1.z;g111*=norm1.w;
-  float n000=dot(g000,Pf0);float n100=dot(g100,vec3(Pf1.x,Pf0.yz));
-  float n010=dot(g010,vec3(Pf0.x,Pf1.y,Pf0.z));float n110=dot(g110,vec3(Pf1.xy,Pf0.z));
-  float n001=dot(g001,vec3(Pf0.xy,Pf1.z));float n101=dot(g101,vec3(Pf1.x,Pf0.y,Pf1.z));
-  float n011=dot(g011,vec3(Pf0.x,Pf1.yz));float n111=dot(g111,Pf1);
-  vec3 fade_xyz=fade(Pf0);
-  vec4 n_z=mix(vec4(n000,n100,n010,n110),vec4(n001,n101,n011,n111),fade_xyz.z);
-  vec2 n_yz=mix(n_z.xy,n_z.zw,fade_xyz.y);
-  return 2.2*mix(n_yz.x,n_yz.y,fade_xyz.x);
-}
-
+// ─── Shared noise GLSL ──────────────────────────────────────────────────────
+const NOISE = `
 float hash(vec3 p){return fract(sin(dot(p,vec3(12.9898,78.233,151.7182)))*43758.5453);}
 float hash2(float n){return fract(sin(n)*43758.5453);}
-
 float vnoise(vec3 p){
-  vec3 i=floor(p);vec3 f=fract(p);
-  f=f*f*(3.0-2.0*f);
-  return mix(
-    mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),
-        mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
-    mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),
-        mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);
-}
-
+  vec3 i=floor(p);vec3 f=fract(p);f=f*f*(3.0-2.0*f);
+  return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
+             mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);}
 float fbm(vec3 p){
   float v=0.0;float a=0.5;
-  vec3 shift=vec3(100.0);
-  for(int i=0;i<6;i++){v+=a*vnoise(p);p=p*2.0+shift;a*=0.5;}
-  return v;
-}
-
-float fbm4(vec3 p){
-  return vnoise(p)*0.5+vnoise(p*2.0+3.7)*0.25+vnoise(p*4.0+7.3)*0.125+vnoise(p*8.0+13.1)*0.0625;
-}
+  for(int i=0;i<6;i++){v+=a*vnoise(p);p=p*2.1+vec3(100.0);a*=0.5;}
+  return v;}
+float fbm4(vec3 p){return vnoise(p)*0.5+vnoise(p*2.1+3.3)*0.25+vnoise(p*4.3+7.7)*0.125+vnoise(p*8.7+15.1)*0.0625;}
 `;
 
-const LIGHTING_GLSL = `
-vec3 calcLight(vec3 surfaceColor, vec3 worldNormal, vec3 worldPos, vec3 rimColor, float roughness, float specularStrength){
-  vec3 sunDir = normalize(vec3(2.0, 1.5, 1.0));
-  vec3 viewDir = normalize(cameraPosition - worldPos);
-  
-  float NdotL = max(dot(worldNormal, sunDir), 0.0);
-  float ambient = 0.03;
-  float shadow = NdotL * 0.97 + ambient;
-  
-  // Blinn-Phong specular
-  vec3 halfDir = normalize(sunDir + viewDir);
-  float NdotH = max(dot(worldNormal, halfDir), 0.0);
-  float shininess = 64.0 * (1.0 - roughness) + 4.0;
-  float spec = pow(NdotH, shininess) * specularStrength * (1.0 - roughness * 0.5);
-  
-  // Multi-layer rim
-  float NdotV = max(dot(worldNormal, viewDir), 0.0);
-  float rim1 = pow(1.0 - NdotV, 3.0) * 0.7;
-  float rim2 = pow(1.0 - NdotV, 6.0) * 0.4;
-  
-  // Terminator softening
-  float terminator = smoothstep(-0.1, 0.1, NdotL);
-  
-  vec3 lit = surfaceColor * shadow + spec * vec3(1.0, 0.95, 0.9);
-  lit += rimColor * (rim1 + rim2);
+// ─── Common lighting ─────────────────────────────────────────────────────────
+const LIGHT = `
+vec3 light(vec3 col, vec3 N, vec3 P, vec3 rimCol, float rough, float specStr){
+  vec3 L = normalize(vec3(2.0,1.5,1.0));
+  vec3 V = normalize(cameraPosition - P);
+  float NdL = max(dot(N,L),0.0);
+  float amb = 0.035;
+  vec3 H = normalize(L+V);
+  float spec = pow(max(dot(N,H),0.0), mix(8.0,128.0,1.0-rough)) * specStr;
+  float NdV = max(dot(N,V),0.0);
+  float rim = pow(1.0-NdV, 3.0)*0.8;
+  float rim2 = pow(1.0-NdV, 6.0)*0.5;
+  vec3 lit = col*(NdL+amb) + spec*vec3(1.0,0.96,0.90);
+  lit += rimCol*(rim+rim2);
   return lit;
 }
 `;
 
-const vertexShader = `
-${NOISE_GLSL}
-
-uniform float time;
-uniform float displacementScale;
+// ─── Pure sphere vertex — NO displacement (clean silhouette) ─────────────────
+const vert = `
 varying vec2 vUv;
-varying vec3 vWorldNormal;
-varying vec3 vWorldPosition;
-varying float vElevation;
-
+varying vec3 vN;
+varying vec3 vP;
 void main(){
   vUv = uv;
-  
-  float n1 = cnoise(position * 1.5 + time * 0.05);
-  float n2 = cnoise(position * 3.5 - time * 0.025);
-  float n3 = cnoise(position * 7.0 + time * 0.015);
-  float n4 = cnoise(position * 14.0 - time * 0.01);
-  
-  float displacement = (n1 * 0.5 + n2 * 0.3 + n3 * 0.15 + n4 * 0.05) * displacementScale;
-  vElevation = displacement;
-  
-  vec3 newPos = position + normal * displacement;
-  vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
-  vWorldPosition = (modelMatrix * vec4(newPos, 1.0)).xyz;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(newPos, 1.0);
+  vN = normalize((modelMatrix*vec4(normal,0.0)).xyz);
+  vP = (modelMatrix*vec4(position,1.0)).xyz;
+  gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0);
 }
 `;
 
-const cloudVertexShader = `
-uniform float time;
-varying vec2 vUv;
-varying vec3 vWorldNormal;
-varying vec3 vWorldPosition;
+// ─── Fragment shaders ─────────────────────────────────────────────────────────
+const frags: Record<string, string> = {
 
+  // Hero — gas giant: vivid atmospheric bands with storm system
+  hero: `${NOISE}${LIGHT}
+uniform float time; varying vec3 vN,vP; varying vec2 vUv;
 void main(){
-  vUv = uv;
-  vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
-  vWorldPosition = (modelMatrix * vec4(position, 1.0)).xyz;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-}
-`;
+  vec3 p=vP*0.55;
+  float turb=fbm(p*1.2+time*0.025)*1.8-0.9;
+  float b1=sin(p.y*7.0+turb*2.8+time*0.18)*0.5+0.5;
+  float b2=sin(p.y*15.0-turb*1.8-time*0.12)*0.5+0.5;
+  float b3=sin(p.y*3.5+turb*0.9+time*0.06)*0.5+0.5;
+  float fine=sin(p.y*30.0+turb*5.0+time*0.3)*0.5+0.5;
 
-const cloudFragmentShader = `
-${NOISE_GLSL}
+  vec3 c1=vec3(0.05,0.02,0.32); // deep navy
+  vec3 c2=vec3(0.10,0.06,0.72); // royal blue
+  vec3 c3=vec3(0.22,0.14,0.90); // violet
+  vec3 c4=vec3(0.03,0.22,0.78); // cerulean
+  vec3 c5=vec3(0.55,0.42,1.00); // lavender
 
-uniform float time;
-uniform vec3 cloudColor;
-uniform float cloudDensity;
-varying vec2 vUv;
-varying vec3 vWorldNormal;
-varying vec3 vWorldPosition;
+  vec3 s=mix(c1,c2,b1);
+  s=mix(s,c3,b2*0.65);
+  s=mix(s,c4,b3*0.40);
+  s+=vec3(0.08,0.05,0.18)*fine*0.35;
 
-void main(){
-  vec3 p = vWorldPosition * 0.6;
-  float cloud = fbm(p + time * 0.04);
-  float cloud2 = fbm(p * 2.5 - time * 0.02 + 5.3);
-  
-  float density = smoothstep(0.52, 0.75, cloud * 0.6 + cloud2 * 0.4);
-  
-  vec3 sunDir = normalize(vec3(2.0, 1.5, 1.0));
-  float NdotL = max(dot(vWorldNormal, sunDir), 0.0) * 0.7 + 0.3;
-  
-  vec3 viewDir = normalize(cameraPosition - vWorldPosition);
-  float rim = pow(1.0 - max(dot(vWorldNormal, viewDir), 0.0), 2.0) * 0.3;
-  
-  vec3 col = cloudColor * NdotL;
-  gl_FragColor = vec4(col, density * cloudDensity + rim * density * 0.5);
-}
-`;
+  // Great storm spot
+  vec3 localP=normalize(vP);
+  float sdist=length(vec2(localP.x-0.35,localP.y*1.8-0.25));
+  float storm=smoothstep(0.28,0.08,sdist)*0.7;
+  float stormTwirl=fbm4(vec3(localP.xy*4.0+time*0.08,0.5));
+  storm*=smoothstep(0.30,0.10,sdist+stormTwirl*0.15);
+  s=mix(s,c5,storm);
 
-const fragmentShaders: Record<string, string> = {
-  hero: `
-${NOISE_GLSL}
-${LIGHTING_GLSL}
-uniform float time;
-uniform vec3 color;
-varying vec3 vWorldNormal;
-varying vec3 vWorldPosition;
-varying vec2 vUv;
-varying float vElevation;
-
-void main(){
-  vec3 p = vWorldPosition;
-  
-  // Multi-layered atmospheric bands like a gas giant
-  float turb = fbm4(p * 0.8 + time * 0.03) * 2.0 - 1.0;
-  float bands1 = sin(p.y * 6.0 + turb * 2.5 + time * 0.15) * 0.5 + 0.5;
-  float bands2 = sin(p.y * 14.0 - turb * 1.5 - time * 0.1) * 0.5 + 0.5;
-  float bands3 = sin(p.y * 3.0 + turb * 0.8 + time * 0.05) * 0.5 + 0.5;
-  
-  vec3 c1 = vec3(0.08, 0.04, 0.38); // deep navy
-  vec3 c2 = vec3(0.18, 0.10, 0.72); // royal blue
-  vec3 c3 = vec3(0.30, 0.20, 0.90); // bright violet
-  vec3 c4 = vec3(0.05, 0.30, 0.80); // cerulean
-  vec3 c5 = vec3(0.55, 0.40, 1.00); // lavender
-  
-  vec3 surface = mix(c1, c2, bands1);
-  surface = mix(surface, c3, bands2 * 0.6);
-  surface = mix(surface, c4, bands3 * 0.4);
-  
-  // Great storm oval
-  vec2 stormUV = vec2(p.x * 0.5 - 0.3, (p.y - 0.5) * 1.5);
-  float stormDist = length(stormUV);
-  float storm = smoothstep(0.5, 0.2, stormDist);
-  float stormTwirl = fbm4(vec3(stormUV * 3.0 + time * 0.1, 0.5));
-  storm *= smoothstep(0.55, 0.3, stormDist + stormTwirl * 0.2);
-  surface = mix(surface, c5, storm * 0.7);
-  
-  // Fine detail streaks
-  float streaks = fbm4(p * 4.0 + time * 0.06);
-  surface += vec3(0.1, 0.05, 0.3) * streaks * 0.2;
-  
-  surface = calcLight(surface, vWorldNormal, vWorldPosition, vec3(0.4, 0.5, 1.0), 0.65, 0.5);
-  gl_FragColor = vec4(surface, 1.0);
+  s=light(s,vN,vP,vec3(0.5,0.6,1.0),0.65,0.6);
+  gl_FragColor=vec4(s,1.0);
 }`,
 
-  about: `
-${NOISE_GLSL}
-${LIGHTING_GLSL}
-uniform float time;
-uniform vec3 color;
-varying vec3 vWorldNormal;
-varying vec3 vWorldPosition;
-varying vec2 vUv;
-varying float vElevation;
-
+  // About — volcanic: deep black crust split by glowing magma veins
+  about: `${NOISE}${LIGHT}
+uniform float time; varying vec3 vN,vP; varying vec2 vUv;
 void main(){
-  vec3 p = vWorldPosition;
-  
-  // Layered crustal noise
-  float crust = fbm(p * 2.5 + time * 0.015);
-  float rock = fbm4(p * 4.0 - time * 0.008);
-  
-  // Crack network — tectonic fissures
-  float cracks = smoothstep(0.68, 0.80, fbm(p * 3.5 - time * 0.04));
-  float cracks2 = smoothstep(0.72, 0.82, fbm4(p * 7.0 + time * 0.025));
-  float cracks3 = smoothstep(0.75, 0.88, fbm(p * 12.0 + time * 0.05));
-  
-  vec3 darkRock = vec3(0.06, 0.03, 0.02);
-  vec3 midRock  = vec3(0.16, 0.08, 0.05);
-  vec3 lightRock= vec3(0.25, 0.14, 0.08);
-  vec3 magmaOrange = vec3(1.0, 0.40, 0.05);
-  vec3 magmaYellow = vec3(1.0, 0.80, 0.10);
-  vec3 lavaGlow    = vec3(1.0, 0.20, 0.00);
-  
-  vec3 surface = mix(darkRock, midRock, rock);
-  surface = mix(surface, lightRock, crust * 0.3);
-  
-  // Lava in cracks with glow
-  float lavaAmount = max(cracks, max(cracks2 * 0.7, cracks3 * 0.5));
-  vec3 lavaColor = mix(magmaOrange, magmaYellow, cracks3);
-  surface = mix(surface, lavaColor, lavaAmount);
-  
-  // Emissive lava that self-illuminates
-  vec3 emissive = lavaGlow * lavaAmount * 1.8;
-  
-  vec3 lit = calcLight(surface, vWorldNormal, vWorldPosition, vec3(1.0, 0.4, 0.1), 0.85, 0.15);
-  lit += emissive * 0.7;
-  
-  // Night side city/lava glow
-  vec3 viewDir = normalize(cameraPosition - vWorldPosition);
-  vec3 sunDir = normalize(vec3(2.0, 1.5, 1.0));
-  float nightSide = 1.0 - max(dot(vWorldNormal, sunDir), 0.0);
-  lit += lavaColor * lavaAmount * nightSide * 1.2;
-  
-  gl_FragColor = vec4(lit, 1.0);
+  vec3 p=vP;
+  float crust=fbm(p*2.2+time*0.012);
+  float rock=fbm4(p*4.5-time*0.007);
+  // Crack network
+  float c1=smoothstep(0.66,0.76,fbm(p*3.0-time*0.035));
+  float c2=smoothstep(0.70,0.80,fbm4(p*6.5+time*0.022));
+  float c3=smoothstep(0.74,0.86,fbm(p*11.0+time*0.045));
+  float c4=smoothstep(0.80,0.92,vnoise(p*18.0-time*0.06));
+
+  vec3 dRock=vec3(0.06,0.03,0.02);
+  vec3 mRock=vec3(0.15,0.08,0.04);
+  vec3 lRock=vec3(0.26,0.15,0.08);
+  vec3 magO=vec3(1.0,0.42,0.04);
+  vec3 magY=vec3(1.0,0.82,0.08);
+  vec3 magW=vec3(1.0,1.0,0.70);
+
+  vec3 s=mix(dRock,mRock,rock);
+  s=mix(s,lRock,crust*0.3);
+  float lava=max(c1,max(c2*0.75,max(c3*0.55,c4*0.4)));
+  vec3 lavaCol=mix(magO,magY,c3);
+  lavaCol=mix(lavaCol,magW,c4*0.5);
+  s=mix(s,lavaCol,lava);
+
+  // Self-illuminate on night side
+  vec3 L=normalize(vec3(2.0,1.5,1.0));
+  float night=1.0-max(dot(vN,L),0.0);
+  vec3 lit=light(s,vN,vP,vec3(1.0,0.4,0.1),0.9,0.10);
+  lit+=lavaCol*lava*(0.6+night*1.0);
+  gl_FragColor=vec4(lit,1.0);
 }`,
 
-  skills: `
-${NOISE_GLSL}
-${LIGHTING_GLSL}
-uniform float time;
-uniform vec3 color;
-varying vec3 vWorldNormal;
-varying vec3 vWorldPosition;
-varying vec2 vUv;
-varying float vElevation;
-
+  // Skills — ice world: geometric crystal facets + deep ocean + aurora shimmer
+  skills: `${NOISE}${LIGHT}
+uniform float time; varying vec3 vN,vP; varying vec2 vUv;
 void main(){
-  vec3 p = vWorldPosition;
-  
-  // Ice crystal structure — sharp geometric facets
-  float crystal = fbm4(p * 3.5);
-  float facetBase = fract(crystal * 8.0);
-  float facet = smoothstep(0.0, 0.08, facetBase) * smoothstep(1.0, 0.92, facetBase);
-  float facetGlow = smoothstep(0.0, 0.04, facetBase) * smoothstep(1.0, 0.96, facetBase);
-  
-  // Deep ocean underneath ice
-  float depth = fbm(p * 2.0 + time * 0.02);
-  
-  // Ice caps at poles
-  float iceCap = smoothstep(0.55, 0.85, abs(p.y / length(p)));
-  
-  // Storm systems
-  float storm1 = sin(p.y * 5.0 + crystal * 4.0 + time * 0.4) * 0.5 + 0.5;
-  float storm2 = sin(p.x * 3.0 - crystal * 3.0 - time * 0.3) * 0.5 + 0.5;
-  float storms = storm1 * storm2;
-  
-  vec3 deepOcean = vec3(0.01, 0.18, 0.35);
-  vec3 shallowIce = vec3(0.05, 0.55, 0.80);
-  vec3 brightIce  = vec3(0.50, 0.92, 1.00);
-  vec3 snowWhite  = vec3(0.85, 0.95, 1.00);
-  vec3 stormBlue  = vec3(0.02, 0.35, 0.65);
-  
-  vec3 surface = mix(deepOcean, shallowIce, depth);
-  surface = mix(surface, stormBlue, storms * 0.4);
-  surface += brightIce * facet * 0.4;
-  surface = mix(surface, snowWhite, iceCap);
-  
-  // Crystal edge highlight
-  surface += vec3(0.6, 0.95, 1.0) * facetGlow * 0.5;
-  
-  // Lightning arcs
-  float lightning = smoothstep(0.88, 1.0, fbm(p * 9.0 - time * 0.5));
-  surface += vec3(0.7, 0.95, 1.0) * lightning * 2.5;
-  
-  // Subsurface scattering simulation
-  vec3 viewDir = normalize(cameraPosition - vWorldPosition);
-  float sss = pow(max(dot(vWorldNormal, viewDir), 0.0), 0.5) * 0.15;
-  surface += vec3(0.2, 0.7, 1.0) * sss;
-  
-  surface = calcLight(surface, vWorldNormal, vWorldPosition, vec3(0.3, 0.85, 1.0), 0.12, 0.9);
-  gl_FragColor = vec4(surface, 1.0);
+  vec3 p=vP;
+  float crystal=fbm4(p*3.5);
+  float faceBase=fract(crystal*9.0);
+  float face=smoothstep(0.0,0.07,faceBase)*smoothstep(1.0,0.93,faceBase);
+  float faceEdge=smoothstep(0.0,0.03,faceBase)*smoothstep(1.0,0.97,faceBase);
+  float depth=fbm(p*2.0+time*0.018);
+  float latAbs=abs(normalize(p).y);
+  float ice=smoothstep(0.50,0.80,latAbs);
+  float storm=sin(p.y*5.5+crystal*4.0+time*0.45)*0.5+0.5;
+  float storm2=sin(p.x*3.5-crystal*3.0-time*0.32)*0.5+0.5;
+  float storms=storm*storm2;
+
+  vec3 ocean=vec3(0.01,0.16,0.32);
+  vec3 iceBlue=vec3(0.04,0.52,0.82);
+  vec3 iceWhite=vec3(0.75,0.95,1.00);
+  vec3 snowCap=vec3(0.90,0.97,1.00);
+  vec3 stormBlue=vec3(0.01,0.30,0.60);
+
+  vec3 s=mix(ocean,iceBlue,depth);
+  s=mix(s,stormBlue,storms*0.38);
+  s+=iceBlue*face*0.45;
+  s+=vec3(0.8,1.0,1.0)*faceEdge*0.55;
+  s=mix(s,snowCap,ice);
+
+  // Subsurface glow
+  vec3 V=normalize(cameraPosition-vP);
+  float sss=pow(max(dot(vN,V),0.0),0.4)*0.12;
+  s+=vec3(0.1,0.6,1.0)*sss;
+
+  // Lightning
+  float bolt=smoothstep(0.905,1.0,fbm(p*9.0-time*0.55));
+  s+=vec3(0.6,0.95,1.0)*bolt*2.5;
+
+  s=light(s,vN,vP,vec3(0.3,0.88,1.0),0.12,0.95);
+  gl_FragColor=vec4(s,1.0);
 }`,
 
-  projects: `
-${NOISE_GLSL}
-${LIGHTING_GLSL}
-uniform float time;
-uniform vec3 color;
-varying vec3 vWorldNormal;
-varying vec3 vWorldPosition;
-varying vec2 vUv;
-varying float vElevation;
-
+  // Projects — bioluminescent alien world: dark base, vivid glowing veins
+  projects: `${NOISE}${LIGHT}
+uniform float time; varying vec3 vN,vP; varying vec2 vUv;
 void main(){
-  vec3 p = vWorldPosition;
-  
-  // Dark alien surface with biological patterns
-  float bio1 = fbm(p * 1.8 + time * 0.04);
-  float bio2 = fbm4(p * 3.5 - time * 0.06);
-  float bio3 = fbm(p * 7.0 + time * 0.03);
-  
-  // Fluid band system
-  float bands1 = sin(p.y * 4.0 + bio1 * 3.5) * 0.5 + 0.5;
-  float bands2 = sin(p.y * 9.0 + bio2 * 2.5 - time * 0.15) * 0.5 + 0.5;
-  
-  // Bioluminescent veins
-  float veins = smoothstep(0.75, 0.90, fbm(p * 5.0 - time * 0.05));
-  float veins2 = smoothstep(0.80, 0.95, fbm(p * 9.0 + time * 0.04));
-  
-  // Eye-like anomalies
-  float eyes = smoothstep(0.85, 0.96, vnoise(p * 2.5 - time * 0.03));
-  
-  vec3 darkBase  = vec3(0.08, 0.01, 0.05);
-  vec3 midPurple = vec3(0.30, 0.03, 0.14);
-  vec3 deepRed   = vec3(0.55, 0.06, 0.22);
-  vec3 bioGlow   = vec3(0.95, 0.25, 0.55);
-  vec3 bioGlow2  = vec3(0.70, 0.10, 0.80);
-  vec3 eyeColor  = vec3(1.00, 0.60, 0.80);
-  
-  vec3 surface = mix(darkBase, midPurple, bands1 * 0.5 + bio1 * 0.5);
-  surface = mix(surface, deepRed, bands2 * 0.4);
-  
-  // Glowing veins
-  surface = mix(surface, bioGlow, veins);
-  surface = mix(surface, bioGlow2, veins2 * 0.8);
-  surface = mix(surface, eyeColor, eyes);
-  
-  vec3 lit = calcLight(surface, vWorldNormal, vWorldPosition, vec3(0.8, 0.2, 0.5), 0.5, 0.25);
-  
-  // Self-glow from bioluminescence
-  vec3 sunDir = normalize(vec3(2.0, 1.5, 1.0));
-  float nightSide = 1.0 - max(dot(vWorldNormal, sunDir), 0.0);
-  lit += bioGlow * veins * nightSide * 0.8;
-  lit += bioGlow2 * veins2 * nightSide * 0.5;
-  
-  gl_FragColor = vec4(lit, 1.0);
+  vec3 p=vP;
+  float base=fbm(p*2.0+time*0.038);
+  float swirl=fbm4(p*3.5-time*0.055);
+  float b1=sin(p.y*4.5+base*3.5)*0.5+0.5;
+  float b2=sin(p.y*9.0+swirl*2.5-time*0.14)*0.5+0.5;
+  // Glowing vein network
+  float v1=smoothstep(0.73,0.88,fbm(p*5.0-time*0.04));
+  float v2=smoothstep(0.78,0.93,fbm4(p*9.0+time*0.035));
+  float v3=smoothstep(0.82,0.95,vnoise(p*15.0-time*0.025));
+  float eyes=smoothstep(0.86,0.96,vnoise(p*2.5-time*0.028));
+
+  vec3 dark=vec3(0.07,0.01,0.04);
+  vec3 mid=vec3(0.28,0.03,0.13);
+  vec3 deep=vec3(0.50,0.05,0.20);
+  vec3 bio1=vec3(0.95,0.22,0.52);
+  vec3 bio2=vec3(0.65,0.08,0.85);
+  vec3 eyeC=vec3(1.00,0.65,0.80);
+
+  vec3 s=mix(dark,mid,b1*0.5+base*0.5);
+  s=mix(s,deep,b2*0.4);
+  float vein=max(v1,max(v2*0.8,v3*0.6));
+  vec3 veinCol=mix(bio1,bio2,v2);
+  s=mix(s,veinCol,vein);
+  s=mix(s,eyeC,eyes);
+
+  vec3 L=normalize(vec3(2.0,1.5,1.0));
+  float night=1.0-max(dot(vN,L),0.0);
+  vec3 lit=light(s,vN,vP,vec3(0.8,0.18,0.52),0.55,0.22);
+  lit+=veinCol*vein*night*1.0;
+  lit+=bio2*eyes*night*0.8;
+  gl_FragColor=vec4(lit,1.0);
 }`,
 
-  timeline: `
-${NOISE_GLSL}
-${LIGHTING_GLSL}
-uniform float time;
-uniform vec3 color;
-varying vec3 vWorldNormal;
-varying vec3 vWorldPosition;
-varying vec2 vUv;
-varying float vElevation;
-
+  // Timeline — ice/rock moon with vivid aurora ribbons
+  timeline: `${NOISE}${LIGHT}
+uniform float time; varying vec3 vN,vP; varying vec2 vUv;
 void main(){
-  vec3 p = vWorldPosition;
-  
-  // Silver-grey rocky terrain
-  float terrain = fbm(p * 2.0 + time * 0.01);
-  float detail  = fbm4(p * 5.0 + time * 0.008);
-  float craters = smoothstep(0.72, 0.78, vnoise(p * 3.5));
-  
-  // Polar ice caps
-  float latAbs = abs(normalize(p).y);
-  float iceCap = smoothstep(0.55, 0.80, latAbs);
-  float iceDetail = fbm4(p * 4.0) * 0.3;
-  
-  // Aurora ribbons — animated light bands
-  float auroraLat = smoothstep(0.45, 0.70, latAbs);
-  float aurora1 = sin(p.y * 5.0 + fbm(p * 1.5 + time * 0.3) * 8.0 + time * 0.6) * 0.5 + 0.5;
-  float aurora2 = sin(p.y * 9.0 - fbm(p * 2.5 - time * 0.2) * 6.0 - time * 0.45) * 0.5 + 0.5;
-  aurora1 = pow(smoothstep(0.3, 0.9, aurora1), 1.8) * auroraLat;
-  aurora2 = pow(smoothstep(0.4, 0.95, aurora2), 1.5) * auroraLat;
-  
-  vec3 greyBase  = vec3(0.42, 0.44, 0.50);
-  vec3 greyLight = vec3(0.62, 0.64, 0.70);
-  vec3 craterRim = vec3(0.70, 0.72, 0.80);
-  vec3 iceWhite  = vec3(0.88, 0.92, 1.00);
-  vec3 aur1Col   = vec3(0.30, 0.90, 0.80); // teal aurora
-  vec3 aur2Col   = vec3(0.70, 0.40, 1.00); // violet aurora
-  
-  vec3 surface = mix(greyBase, greyLight, terrain);
-  surface = mix(surface, craterRim, craters * 0.4);
-  surface = mix(surface, iceWhite, iceCap * (0.8 + iceDetail));
-  
-  // Aurora overlay
-  surface = mix(surface, aur1Col, aurora1 * 0.5);
-  surface = mix(surface, aur2Col, aurora2 * 0.4);
-  
-  vec3 viewDir = normalize(cameraPosition - vWorldPosition);
-  float vdotn = max(dot(vWorldNormal, viewDir), 0.0);
-  float translucent = pow(1.0 - vdotn, 4.0) * 0.4;
-  
-  vec3 lit = calcLight(surface, vWorldNormal, vWorldPosition, vec3(0.6, 0.85, 1.0), 0.45, 0.6);
-  lit += aur1Col * aurora1 * 0.4 + aur2Col * aurora2 * 0.3;
-  lit += (aur1Col + aur2Col) * translucent * 0.3;
-  
-  gl_FragColor = vec4(lit, 0.97);
+  vec3 p=vP;
+  float terrain=fbm(p*1.8+time*0.008);
+  float detail=fbm4(p*4.5+time*0.005);
+  float crater=smoothstep(0.70,0.76,vnoise(p*3.2));
+  float latAbs=abs(normalize(p).y);
+  float ice=smoothstep(0.52,0.78,latAbs);
+
+  // Aurora bands — flowing across mid-latitudes
+  float aurLat=smoothstep(0.40,0.68,latAbs);
+  float n=fbm(p*1.2+time*0.018);
+  float a1=sin(p.y*5.0+n*8.0+time*0.65)*0.5+0.5;
+  float a2=sin(p.y*9.0-n*6.0-time*0.50)*0.5+0.5;
+  a1=pow(smoothstep(0.28,0.90,a1),1.8)*aurLat;
+  a2=pow(smoothstep(0.35,0.95,a2),1.5)*aurLat;
+
+  vec3 grey=vec3(0.38,0.40,0.46);
+  vec3 lgrey=vec3(0.58,0.60,0.66);
+  vec3 crater_col=vec3(0.66,0.68,0.76);
+  vec3 iceW=vec3(0.85,0.92,1.00);
+  vec3 aur1=vec3(0.20,0.95,0.75);
+  vec3 aur2=vec3(0.72,0.35,1.00);
+
+  vec3 s=mix(grey,lgrey,terrain);
+  s=mix(s,crater_col,crater*0.45);
+  s=mix(s,iceW,ice*(0.75+detail*0.25));
+  s=mix(s,aur1,a1*0.55);
+  s=mix(s,aur2,a2*0.45);
+
+  vec3 V=normalize(cameraPosition-vP);
+  float sss=pow(1.0-max(dot(vN,V),0.0),4.0)*0.35;
+  vec3 lit=light(s,vN,vP,vec3(0.55,0.85,1.0),0.48,0.60);
+  lit+=aur1*a1*0.5+aur2*a2*0.38;
+  lit+=(aur1+aur2)*sss*0.28;
+  gl_FragColor=vec4(lit,1.0);
 }`,
 
-  dreams: `
-${NOISE_GLSL}
-${LIGHTING_GLSL}
-uniform float time;
-uniform vec3 color;
-varying vec3 vWorldNormal;
-varying vec3 vWorldPosition;
-varying vec2 vUv;
-varying float vElevation;
-
+  // Dreams — violent storm world: swirling vortex, lightning, vivid purples
+  dreams: `${NOISE}${LIGHT}
+uniform float time; varying vec3 vN,vP; varying vec2 vUv;
 void main(){
-  vec3 p = vWorldPosition;
-  
-  // Violent storm system like Neptune but more alien
-  float turb = fbm(p * 1.5 + time * 0.05);
-  float swirl1 = fbm4(vec3(p.xy * 2.5 + time * 0.08, turb * 2.0));
-  float swirl2 = fbm(p * 4.0 - vec3(time * 0.06, -time * 0.04, 0.0));
-  
-  float bands = sin(p.y * 4.0 + turb * 5.0 - time * 0.25) * 0.5 + 0.5;
-  float vortex = fbm(p * 3.0 + vec3(time * 0.1, -time * 0.07, 0.0));
-  
+  vec3 p=vP;
+  float turb=fbm(p*1.4+time*0.048);
+  float s1=fbm4(vec3(p.xy*2.2+time*0.07,turb*2.0));
+  float s2=fbm(p*3.8-vec3(time*0.055,-time*0.038,0.0));
+  float bands=sin(p.y*4.2+turb*5.5-time*0.28)*0.5+0.5;
+  float vortex=fbm(p*2.8+vec3(time*0.09,-time*0.065,0.0));
+
   // Eye of the storm
-  float stormEye = length(p.xz / length(p));
-  float eyeGlow = smoothstep(0.4, 0.0, stormEye - 0.3 + vortex * 0.1);
-  
-  vec3 deepViolet = vec3(0.14, 0.04, 0.40);
-  vec3 midPurple  = vec3(0.38, 0.10, 0.72);
-  vec3 brightPurp = vec3(0.65, 0.30, 1.00);
-  vec3 stormWhite = vec3(0.85, 0.75, 1.00);
-  vec3 eyeCore    = vec3(1.00, 0.90, 1.00);
-  
-  vec3 surface = mix(deepViolet, midPurple, bands * 0.6 + swirl1 * 0.4);
-  surface = mix(surface, brightPurp, swirl2 * 0.5 + vortex * 0.3);
-  surface = mix(surface, stormWhite, swirl1 * bands * 0.4);
-  surface = mix(surface, eyeCore, eyeGlow * 0.8);
-  
-  // Lightning deep in the clouds
-  float lightning = smoothstep(0.90, 1.0, fbm(p * 7.0 - time * 0.3));
-  float lightning2 = smoothstep(0.93, 1.0, fbm(p * 12.0 + time * 0.4));
-  surface += vec3(0.8, 0.5, 1.0) * lightning * 2.0;
-  surface += vec3(1.0, 0.8, 1.0) * lightning2 * 1.5;
-  
-  surface = calcLight(surface, vWorldNormal, vWorldPosition, vec3(0.7, 0.3, 1.0), 0.4, 0.4);
-  
-  // Storm self-illumination
-  vec3 sunDir = normalize(vec3(2.0, 1.5, 1.0));
-  float nightSide = 1.0 - max(dot(vWorldNormal, sunDir), 0.0);
-  surface += brightPurp * lightning * nightSide * 0.6;
-  
-  gl_FragColor = vec4(surface, 1.0);
+  vec3 lp=normalize(p);
+  float eyeDist=length(lp.xz);
+  float eyeGlow=smoothstep(0.5,0.0,eyeDist-0.28+vortex*0.12);
+
+  vec3 dv=vec3(0.12,0.03,0.38);
+  vec3 mv=vec3(0.36,0.08,0.72);
+  vec3 bv=vec3(0.62,0.28,1.00);
+  vec3 sw=vec3(0.82,0.72,1.00);
+  vec3 eyeC=vec3(1.00,0.92,1.00);
+
+  vec3 s=mix(dv,mv,bands*0.6+s1*0.4);
+  s=mix(s,bv,s2*0.5+vortex*0.3);
+  s=mix(s,sw,s1*bands*0.4);
+  s=mix(s,eyeC,eyeGlow*0.75);
+
+  float bolt=smoothstep(0.896,1.0,fbm(p*7.5-time*0.32));
+  float bolt2=smoothstep(0.920,1.0,fbm(p*13.0+time*0.42));
+  s+=vec3(0.8,0.5,1.0)*bolt*2.5;
+  s+=vec3(1.0,0.8,1.0)*bolt2*1.8;
+
+  vec3 L=normalize(vec3(2.0,1.5,1.0));
+  float night=1.0-max(dot(vN,L),0.0);
+  vec3 lit=light(s,vN,vP,vec3(0.7,0.28,1.0),0.40,0.38);
+  lit+=bv*bolt*night*0.65;
+  gl_FragColor=vec4(lit,1.0);
 }`,
 
-  contact: `
-${NOISE_GLSL}
-uniform float time;
-varying vec3 vWorldNormal;
-varying vec3 vWorldPosition;
-varying vec2 vUv;
-varying float vElevation;
-
+  // Contact — stellar object: solar granulation, sunspots, corona
+  contact: `${NOISE}
+uniform float time; varying vec3 vN,vP; varying vec2 vUv;
 void main(){
-  vec3 p = vWorldPosition;
-  
-  // Solar granulation — convection cells
-  float granules = fbm4(p * 4.0 - time * 0.15);
-  float granules2 = fbm4(p * 8.0 + time * 0.1);
-  float granuleBounds = fract(granules * 6.0);
-  float cell = smoothstep(0.0, 0.25, granuleBounds) * smoothstep(1.0, 0.75, granuleBounds);
-  
-  // Sunspot regions
-  float spots = smoothstep(0.78, 0.86, fbm(p * 2.5 - time * 0.04));
-  float spots2 = smoothstep(0.82, 0.90, vnoise(p * 1.8 + time * 0.02));
-  
-  // Pulsing energy
-  float pulse = 0.85 + 0.15 * sin(time * 1.2 + granules * 5.0);
-  float pulse2 = 0.9 + 0.1 * sin(time * 0.7 + 1.5);
-  
-  vec3 coreColor  = vec3(1.00, 0.98, 0.85);
-  vec3 hotGranule = vec3(1.00, 0.92, 0.60);
-  vec3 coolGroove = vec3(0.95, 0.60, 0.15);
-  vec3 sunspot    = vec3(0.30, 0.12, 0.02);
-  vec3 coronaGlow = vec3(0.70, 0.88, 1.00);
-  
-  vec3 surface = mix(coolGroove, coreColor, granules);
-  surface = mix(surface, hotGranule, cell * 0.5);
-  surface = mix(surface, sunspot, spots * 0.7);
-  surface = mix(surface, sunspot * 0.5, spots2 * 0.4);
-  
-  // Solar flare regions
-  float flares = smoothstep(0.88, 1.0, fbm(p * 3.0 + time * 0.3));
-  surface += vec3(1.0, 0.7, 0.2) * flares * 1.5;
-  
-  // View-dependent corona
-  vec3 viewDir = normalize(cameraPosition - vWorldPosition);
-  float vdotn = max(dot(vWorldNormal, viewDir), 0.0);
-  float corona = pow(1.0 - vdotn, 1.5);
-  
-  surface *= pulse * pulse2;
-  surface += coronaGlow * corona * 0.6;
-  surface += vec3(1.0, 0.9, 0.5) * (1.0 - vdotn) * 0.3;
-  
-  gl_FragColor = vec4(surface * 1.3, 1.0);
-}`,
-};
+  vec3 p=vP;
+  float gran=fbm4(p*3.8-time*0.14);
+  float gran2=fbm4(p*8.0+time*0.10);
+  float granCell=fract(gran*7.0);
+  float cell=smoothstep(0.0,0.22,granCell)*smoothstep(1.0,0.78,granCell);
+  float spot=smoothstep(0.76,0.84,fbm(p*2.2-time*0.03));
+  float flare=smoothstep(0.88,1.0,fbm(p*3.0+time*0.28));
+  float pulse=0.88+0.12*sin(time*1.1+gran*4.0);
 
-const CLOUD_CONFIGS: Record<string, { color: string; density: number; show: boolean }> = {
-  hero:     { color: '#c0d8ff', density: 0.55, show: true },
-  about:    { color: '#ff6633', density: 0.0, show: false },
-  skills:   { color: '#e8f8ff', density: 0.65, show: true },
-  projects: { color: '#ff44aa', density: 0.35, show: true },
-  timeline: { color: '#ddeeff', density: 0.50, show: true },
-  dreams:   { color: '#cc88ff', density: 0.60, show: true },
-  contact:  { color: '#ffffff', density: 0.0, show: false },
+  vec3 core=vec3(1.00,0.97,0.82);
+  vec3 hot=vec3(1.00,0.88,0.55);
+  vec3 cool=vec3(0.92,0.55,0.12);
+  vec3 sp=vec3(0.28,0.10,0.02);
+  vec3 flareC=vec3(1.0,0.72,0.20);
+
+  vec3 s=mix(cool,core,gran);
+  s=mix(s,hot,cell*0.55);
+  s=mix(s,sp,spot*0.75);
+  s+=flareC*flare*1.6;
+  s*=pulse;
+
+  // Limb darkening
+  vec3 V=normalize(cameraPosition-vP);
+  float NdV=max(dot(vN,V),0.0);
+  float limb=pow(NdV,0.4);
+  s*=0.6+limb*0.4;
+
+  // Corona rim
+  float rim=pow(1.0-NdV,1.5)*0.8;
+  s+=vec3(0.7,0.85,1.0)*rim;
+
+  gl_FragColor=vec4(s*1.25,1.0);
+}`,
 };
 
 export default function Planet({ position, config, active }: PlanetProps) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const cloudRef = useRef<THREE.Mesh>(null);
-  const ringRef  = useRef<THREE.Mesh>(null);
+  const ringRef = useRef<THREE.Mesh>(null);
+  const ring2Ref = useRef<THREE.Mesh>(null);
 
-  const surfaceMat = useMemo(() => {
-    const displacementScale = config.size * 0.055;
-    const shader = fragmentShaders[config.type] ?? fragmentShaders.hero;
+  const mat = useMemo(() => {
+    const frag = frags[config.type] ?? frags.hero;
     return new THREE.ShaderMaterial({
-      uniforms: {
-        time: { value: 0 },
-        color: { value: new THREE.Color(config.color) },
-        displacementScale: { value: displacementScale },
-      },
-      vertexShader,
-      fragmentShader: shader,
+      uniforms: { time: { value: 0 } },
+      vertexShader: vert,
+      fragmentShader: frag,
       transparent: config.type === 'timeline',
     });
-  }, [config]);
+  }, [config.type]);
 
-  const cloudConfig = CLOUD_CONFIGS[config.type] ?? { color: '#ffffff', density: 0.4, show: false };
+  React.useEffect(() => () => mat.dispose(), [mat]);
 
-  const cloudMat = useMemo(() => {
-    if (!cloudConfig.show) return null;
-    return new THREE.ShaderMaterial({
-      uniforms: {
-        time: { value: 0 },
-        cloudColor: { value: new THREE.Color(cloudConfig.color) },
-        cloudDensity: { value: cloudConfig.density },
-      },
-      vertexShader: cloudVertexShader,
-      fragmentShader: cloudFragmentShader,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.NormalBlending,
-      side: THREE.FrontSide,
-    });
-  }, [cloudConfig]);
+  // Ring materials (only shown when active)
+  const ringMat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: new THREE.Color(config.color),
+    transparent: true,
+    opacity: 0.32,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  }), [config.color]);
 
-  React.useEffect(() => () => { surfaceMat.dispose(); cloudMat?.dispose(); }, [surfaceMat, cloudMat]);
+  const ring2Mat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: new THREE.Color(config.color),
+    transparent: true,
+    opacity: 0.14,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  }), [config.color]);
+
+  React.useEffect(() => () => { ringMat.dispose(); ring2Mat.dispose(); }, [ringMat, ring2Mat]);
 
   useFrame((state, delta) => {
-    const t = state.clock.elapsedTime;
-    surfaceMat.uniforms.time.value = t;
-    if (cloudMat) cloudMat.uniforms.time.value = t;
-
+    mat.uniforms.time.value = state.clock.elapsedTime;
     if (meshRef.current) {
-      meshRef.current.rotation.y += 0.003;
-      meshRef.current.rotation.x += 0.0008;
-      const s = active ? 1.08 : 1.0;
-      meshRef.current.scale.lerp(new THREE.Vector3(s, s, s), delta * 1.2);
+      meshRef.current.rotation.y += 0.0025;
+      meshRef.current.rotation.x += 0.0007;
+      const t = active ? 1.07 : 1.0;
+      meshRef.current.scale.lerp(new THREE.Vector3(t, t, t), delta * 1.5);
     }
-    if (cloudRef.current) {
-      cloudRef.current.rotation.y += 0.0018;
-      cloudRef.current.rotation.z += 0.0005;
-    }
-    if (ringRef.current) {
-      ringRef.current.rotation.z += 0.0008;
-    }
+    if (ringRef.current) ringRef.current.rotation.z += 0.0006;
+    if (ring2Ref.current) ring2Ref.current.rotation.z -= 0.0004;
   });
 
-  const segments = config.type === 'contact' ? 32 : 48;
+  const r = config.size;
 
   return (
     <group position={position}>
+      {/* Main planet sphere — sphereGeometry for clean silhouette */}
       <mesh ref={meshRef}>
-        <icosahedronGeometry args={[config.size, 24]} />
-        <primitive object={surfaceMat} attach="material" />
+        <sphereGeometry args={[r, 96, 96]} />
+        <primitive object={mat} attach="material" />
       </mesh>
 
-      {cloudConfig.show && cloudMat && (
-        <mesh ref={cloudRef}>
-          <sphereGeometry args={[config.size * 1.035, 48, 48]} />
-          <primitive object={cloudMat} attach="material" />
-        </mesh>
-      )}
+      {/* Atmosphere */}
+      <PlanetAtmosphere size={r} color={config.color} active={active} type={config.type} />
 
-      <PlanetAtmosphere size={config.size} color={config.color} active={active} type={config.type} />
-
-      {active && (
-        <mesh ref={ringRef} rotation={[Math.PI / 2.3, 0.1, 0]}>
-          <ringGeometry args={[config.size * 1.6, config.size * 1.68, 160]} />
-          <meshBasicMaterial
-            color={config.color}
-            transparent
-            opacity={0.28}
-            side={THREE.DoubleSide}
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-          />
-        </mesh>
-      )}
-      {active && (
-        <mesh rotation={[Math.PI / 2.3, 0.1, 0]}>
-          <ringGeometry args={[config.size * 1.72, config.size * 1.76, 160]} />
-          <meshBasicMaterial
-            color={config.color}
-            transparent
-            opacity={0.12}
-            side={THREE.DoubleSide}
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-          />
-        </mesh>
-      )}
+      {/* Rings (always rendered, opacity driven by active state) */}
+      <mesh ref={ringRef} rotation={[Math.PI / 2.2, 0.08, 0]}>
+        <ringGeometry args={[r * 1.55, r * 1.64, 180]} />
+        <primitive object={ringMat} attach="material" />
+      </mesh>
+      <mesh ref={ring2Ref} rotation={[Math.PI / 2.2, 0.08, 0]}>
+        <ringGeometry args={[r * 1.70, r * 1.75, 180]} />
+        <primitive object={ring2Mat} attach="material" />
+      </mesh>
     </group>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import SpaceScene from "@/components/SpaceScene";
+import SpaceBackground from "@/components/SpaceBackground";
 import SectionOverlay from "@/components/SectionOverlay";
 import Navigation from "@/components/Navigation";
 import { gsap } from "gsap";
@@ -8,13 +9,13 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 gsap.registerPlugin(ScrollTrigger);
 
 const SECTIONS = [
-  { id: "hero", label: "[ HERO_PLACEHOLDER ]", subtitle: "Scroll to explore" },
-  { id: "about", label: "[ ABOUT_PLACEHOLDER ]", subtitle: "Discover the origin" },
-  { id: "skills", label: "[ SKILLS_PLACEHOLDER ]", subtitle: "Technical core" },
-  { id: "projects", label: "[ PROJECTS_PLACEHOLDER ]", subtitle: "Formed anomalies" },
-  { id: "timeline", label: "[ TIMELINE_PLACEHOLDER ]", subtitle: "Echoes in time" },
-  { id: "dreams", label: "[ DREAMS_PLACEHOLDER ]", subtitle: "Beyond the horizon" },
-  { id: "contact", label: "[ CONTACT_PLACEHOLDER ]", subtitle: "Establish connection" },
+  { id: "hero",     label: "Varshini Muppala",    subtitle: "Scroll to explore the universe" },
+  { id: "about",    label: "Origin Story",         subtitle: "Where it all began" },
+  { id: "skills",   label: "Technical Core",       subtitle: "The crystalline foundations" },
+  { id: "projects", label: "Created Worlds",       subtitle: "Anomalies of imagination" },
+  { id: "timeline", label: "Journey Through Time", subtitle: "Echoes of every step" },
+  { id: "dreams",   label: "Beyond the Storm",     subtitle: "What lies on the horizon" },
+  { id: "contact",  label: "Make Contact",         subtitle: "Establish a connection" },
 ];
 
 export default function Home() {
@@ -23,9 +24,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!containerRef.current) return;
-
     const sections = gsap.utils.toArray<HTMLElement>(".scroll-section");
-    
     sections.forEach((section, i) => {
       ScrollTrigger.create({
         trigger: section,
@@ -35,40 +34,42 @@ export default function Home() {
         onEnterBack: () => setActiveSection(i),
       });
     });
-
-    return () => {
-      ScrollTrigger.getAll().forEach((t) => t.kill());
-    };
+    return () => { ScrollTrigger.getAll().forEach(t => t.kill()); };
   }, []);
 
   const scrollToSection = (index: number) => {
-    const section = document.querySelector(`#section-${index}`);
-    if (section) {
-      section.scrollIntoView({ behavior: "smooth" });
-    }
+    document.querySelector(`#section-${index}`)?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
-    <div className="relative w-full bg-background" ref={containerRef}>
-      <div className="fixed inset-0 z-0">
+    <div className="relative w-full" style={{ background: "transparent" }} ref={containerRef}>
+      {/* Layer 0: Rich space canvas background (nebulae, galaxies, name text) */}
+      <SpaceBackground />
+
+      {/* Layer 1: Three.js scene (transparent canvas over background) */}
+      <div className="fixed inset-0 z-10">
         <SpaceScene activeSection={activeSection} />
       </div>
-      
-      <div className="relative z-10 w-full pointer-events-none">
+
+      {/* Scroll sections (invisible, just for scroll triggers) */}
+      <div className="relative z-20 w-full pointer-events-none">
         {SECTIONS.map((section, i) => (
-          <div 
-            key={section.id} 
+          <div
+            key={section.id}
             id={`section-${i}`}
             className="scroll-section w-full h-[150vh]"
-          ></div>
+          />
         ))}
       </div>
 
+      {/* Section label overlay */}
       <SectionOverlay activeSection={activeSection} sections={SECTIONS} />
-      <Navigation 
-        total={SECTIONS.length} 
-        active={activeSection} 
-        onChange={scrollToSection} 
+
+      {/* Navigation dots */}
+      <Navigation
+        total={SECTIONS.length}
+        active={activeSection}
+        onChange={scrollToSection}
       />
     </div>
   );
