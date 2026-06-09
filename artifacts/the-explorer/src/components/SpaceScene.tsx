@@ -183,7 +183,9 @@ export default function SpaceScene({ activeSection }: { activeSection: number })
             powerPreference: "high-performance",
             alpha: true,
           }}
-          dpr={1.5}
+          // Adaptive DPR: cap at 1.5 on desktop, 1.0 on mobile for performance
+          dpr={[1, 1.5]}
+          style={{ touchAction: 'none' }}
         >
           <ambientLight intensity={0.05} />
           <directionalLight position={[20, 15, 10]} intensity={1.3} color="#fff8f0" />
@@ -246,7 +248,7 @@ export default function SpaceScene({ activeSection }: { activeSection: number })
               zIndex: 100,
             }}
           >
-            DRAG TO ROTATE &nbsp;·&nbsp; ESC OR CLICK SPACE TO EXIT
+            DRAG OR SWIPE TO ROTATE 360° &nbsp;·&nbsp; TAP SPACE OR ESC TO EXIT
           </div>
         )}
       </>
