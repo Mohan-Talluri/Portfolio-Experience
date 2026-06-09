@@ -1,0 +1,320 @@
+MAJOR VISUAL OVERHAUL REQUIRED
+
+The current implementation feels like a Three.js demo rather than a premium interactive universe.
+
+Do not make small tweaks.
+
+Perform a complete redesign of all visual systems while preserving the core concept:
+
+The user still travels from planet to planet through space.
+
+Keep the navigation concept.
+
+Rebuild everything else.
+
+================================================
+
+PLANETS
+
+================================================
+
+Current planets are unacceptable.
+
+Problems:
+
+* look procedural
+* look low-poly
+* lack detail
+* feel artificial
+* resemble generated blobs
+
+Replace them completely.
+
+Do not generate planets from noise alone.
+
+Use actual planet assets, textures, shaders, and layered materials.
+
+Every planet must contain:
+
+* surface texture
+* normal map
+* roughness map
+* cloud layer
+* atmospheric shell
+* rim lighting
+* emissive regions where appropriate
+
+Planets should feel like premium game assets.
+
+Quality target:
+
+* No Man's Sky
+* Star Citizen
+* Destiny
+* Mass Effect
+
+Avoid:
+
+* blobs
+* gradients
+* SVG circles
+* placeholder spheres
+
+================================================
+
+CONSTELLATIONS
+
+================================================
+
+Current constellations look like SVG graphics floating on top of the page.
+
+Remove them.
+
+Rebuild from scratch.
+
+Constellations should exist naturally inside the universe.
+
+Requirements:
+
+* subtle
+* elegant
+* sparse
+* physically believable
+
+Lines should be extremely thin.
+
+Stars should glow softly.
+
+Constellations should not dominate the scene.
+
+Constellations should occasionally:
+
+* pulse
+* fade
+* reconnect
+* reveal hidden patterns
+
+They should feel discovered, not displayed.
+
+================================================
+
+STARFIELD
+
+================================================
+
+Current stars feel random.
+
+Create a proper astronomical starfield.
+
+Use multiple layers.
+
+Layer 1:
+Extremely distant stars
+
+Layer 2:
+Mid-distance stars
+
+Layer 3:
+Nearby stars
+
+Layer 4:
+Foreground particles
+
+Each layer moves differently.
+
+Different:
+
+* sizes
+* brightness
+* temperatures
+* colors
+
+Add realistic twinkling.
+
+Avoid visual noise.
+
+================================================
+
+MOUSE INTERACTION
+
+================================================
+
+Current mouse effects feel outdated.
+
+Remove all droplet-like particle behavior.
+
+Replace with premium interaction.
+
+Mouse movement should create:
+
+subtle cosmic dust trails
+
+Requirements:
+
+* smooth
+* elegant
+* physically simulated
+* responsive
+
+Not sparkles.
+
+Not fireworks.
+
+Not particle spam.
+
+On mobile:
+
+finger movement should create identical effects.
+
+================================================
+
+PARALLAX
+
+================================================
+
+Current parallax feels shallow.
+
+Rebuild completely.
+
+The universe should contain:
+
+Background:
+Galaxies
+
+Layer 2:
+Nebulae
+
+Layer 3:
+Star clusters
+
+Layer 4:
+Dust fields
+
+Layer 5:
+Planets
+
+Layer 6:
+Foreground particles
+
+Layer 7:
+UI
+
+Every layer moves independently.
+
+Create massive depth perception.
+
+The user should feel immersed in a giant universe.
+
+================================================
+
+GALAXIES
+
+================================================
+
+Add distant galaxies.
+
+Not obvious.
+
+Not decorative.
+
+They should sit far beyond the planets.
+
+Examples:
+
+* spiral galaxies
+* elliptical galaxies
+* dense star clusters
+
+Very subtle.
+
+================================================
+
+NEBULAE
+
+================================================
+
+Replace fake glow effects.
+
+Create volumetric nebula systems.
+
+Use:
+
+* soft gradients
+* animated gas clouds
+* color transitions
+
+Colors:
+
+* indigo
+* violet
+* cyan
+* deep blue
+
+Nebulae should provide atmosphere, not clutter.
+
+================================================
+
+CAMERA
+
+================================================
+
+Current camera movement lacks sophistication.
+
+Create premium motion.
+
+Add:
+
+* inertia
+* easing
+* momentum
+* subtle drift
+* floating sensation
+
+Reference:
+
+Apple product websites
+
+combined with
+
+AAA game menus
+
+The camera should never feel robotic.
+
+================================================
+
+DISCOVERY
+
+================================================
+
+Introduce rare events.
+
+Examples:
+
+* shooting stars
+* passing comets
+* hidden constellations
+* distant spacecraft
+* pulsars
+
+These should be rare and rewarding.
+
+================================================
+
+OVERALL GOAL
+
+================================================
+
+The experience should feel like navigating through a living universe.
+
+The user should feel wonder.
+
+The site should look like a premium interactive experience built by a high-end creative studio.
+
+Do not use any visuals that resemble:
+
+* SVG graphics
+* PowerPoint effects
+* old WebGL demos
+* tutorial projects
+
+Every visual element should feel intentional, modern, cinematic, and physically believable.
