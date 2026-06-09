@@ -1,4 +1,0 @@
-{
-  "buildCommand": "pnpm install --frozen-lockfile && pnpm --filter @workspace/the-explorer run build && cp -r artifacts/the-explorer/dist .",
-  "outputDirectory": "dist"
-}
