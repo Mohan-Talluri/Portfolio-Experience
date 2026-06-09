@@ -8,6 +8,10 @@ import StarField from "./StarField";
 import NebulaCloud from "./NebulaCloud";
 import Planet from "./planets/Planet";
 import SpaceFallback from "./SpaceFallback";
+import GalaxyLayer from "./GalaxyLayer";
+import ConstellationSystem from "./ConstellationSystem";
+import SpaceEvents from "./SpaceEvents";
+import StardustTrail from "./StardustTrail";
 
 class WebGLErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   constructor(props: { children: ReactNode }) {
@@ -112,34 +116,40 @@ export default function SpaceScene({ activeSection }: { activeSection: number })
 
   return (
     <WebGLErrorBoundary>
-    <Canvas
-      camera={{ position: [0, 0, 15], fov: 45 }}
-      gl={{ antialias: false, powerPreference: "high-performance" }}
-    >
-      <color attach="background" args={["#020408"]} />
-      <ambientLight intensity={0.1} />
-      <directionalLight position={[10, 10, 5]} intensity={1} />
-      
-      <StarField />
-      <NebulaCloud />
+      <>
+        <Canvas
+          camera={{ position: [0, 0, 15], fov: 45 }}
+          gl={{ antialias: false, powerPreference: "high-performance" }}
+        >
+          <color attach="background" args={["#020408"]} />
+          <ambientLight intensity={0.1} />
+          <directionalLight position={[10, 10, 5]} intensity={1} />
+          
+          <GalaxyLayer />
+          <StarField />
+          <NebulaCloud />
+          <ConstellationSystem activeSection={activeSection} />
+          <SpaceEvents />
 
-      {PLANET_POSITIONS.map((pos, i) => (
-        <Planet 
-          key={i} 
-          position={pos} 
-          config={PLANET_CONFIGS[i]} 
-          active={activeSection === i}
-        />
-      ))}
+          {PLANET_POSITIONS.map((pos, i) => (
+            <Planet 
+              key={i} 
+              position={pos} 
+              config={PLANET_CONFIGS[i]} 
+              active={activeSection === i}
+            />
+          ))}
 
-      <CameraRig activeSection={activeSection} />
+          <CameraRig activeSection={activeSection} />
 
-      <EffectComposer disableNormalPass>
-        <DepthOfField focusDistance={0} focalLength={0.02} bokehScale={2} height={480} />
-        <Bloom luminanceThreshold={0.2} luminanceSmoothing={0.9} height={300} intensity={1.5} />
-        <Vignette eskil={false} offset={0.1} darkness={1.1} />
-      </EffectComposer>
-    </Canvas>
+          <EffectComposer>
+            <DepthOfField focusDistance={0} focalLength={0.02} bokehScale={2} height={480} />
+            <Bloom luminanceThreshold={0.2} luminanceSmoothing={0.9} height={300} intensity={1.5} />
+            <Vignette eskil={false} offset={0.1} darkness={1.1} />
+          </EffectComposer>
+        </Canvas>
+        <StardustTrail />
+      </>
     </WebGLErrorBoundary>
   );
 }

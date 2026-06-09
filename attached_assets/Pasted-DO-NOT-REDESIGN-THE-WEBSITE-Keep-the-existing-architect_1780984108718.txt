@@ -1,0 +1,262 @@
+DO NOT REDESIGN THE WEBSITE.
+
+Keep the existing architecture, camera system, planet navigation system, and overall explorer concept.
+
+Instead, upgrade the world quality dramatically.
+
+CURRENT PROBLEM:
+
+The planets feel flat.
+
+The environment feels like planets placed inside a website.
+
+The goal is to make the universe feel alive, vast, premium, and physically believable.
+
+================================================
+
+PLANET QUALITY UPGRADE
+
+================================================
+
+Every planet should have significantly more depth.
+
+Improve:
+
+* surface displacement
+* terrain variation
+* atmospheric glow
+* volumetric cloud layers
+* rim lighting
+* reflections
+* surface detail
+* texture richness
+
+Planets should feel massive.
+
+Avoid smooth featureless spheres.
+
+Create visible:
+
+* mountain formations
+* canyons
+* glowing regions
+* cloud systems
+* atmospheric scattering
+
+Planets should have distinct identities.
+
+================================================
+
+SPACE DEPTH UPGRADE
+
+================================================
+
+The universe currently feels too empty.
+
+Add multiple depth layers.
+
+Layer 1:
+Ultra distant galaxies.
+
+Layer 2:
+Nebula fields.
+
+Layer 3:
+Constellation systems.
+
+Layer 4:
+Deep star fields.
+
+Layer 5:
+Dust clouds.
+
+Layer 6:
+Interactive nearby particles.
+
+Every layer must move differently.
+
+The user should immediately feel enormous scale.
+
+================================================
+
+CONSTELLATION SYSTEM
+
+================================================
+
+Add visible constellations.
+
+Not random stars.
+
+Create recognizable constellation patterns.
+
+Some constellations should slowly connect with glowing lines.
+
+Others should subtly animate.
+
+When hovering planets:
+
+nearby constellations react.
+
+Possible reactions:
+
+* brighten
+* pulse
+* reveal hidden connections
+* create energy waves
+
+================================================
+
+STARFIELD IMPROVEMENTS
+
+================================================
+
+Create thousands of stars.
+
+Different sizes.
+
+Different brightness levels.
+
+Different colors.
+
+Add:
+
+* twinkling
+* pulsing
+* slow movement
+* depth shifting
+
+Stars should not be static.
+
+================================================
+
+MOUSE INTERACTION
+
+================================================
+
+Cursor movement should affect space itself.
+
+Create:
+
+stardust trail
+
+The trail should:
+
+* fade naturally
+* sparkle
+* feel magical
+* react to velocity
+
+Fast movement:
+
+larger particle bursts
+
+Slow movement:
+
+gentle glowing dust
+
+On mobile:
+
+finger movement creates the same effect.
+
+================================================
+
+PARALLAX UPGRADE
+
+================================================
+
+Increase depth dramatically.
+
+Mouse movement should influence:
+
+* stars
+* galaxies
+* nebulae
+* particles
+* constellations
+
+Each layer must move independently.
+
+The user should feel surrounded by depth.
+
+================================================
+
+RARE SPACE EVENTS
+
+================================================
+
+Occasionally trigger:
+
+* shooting stars
+* meteor streaks
+* passing comets
+* distant supernova flashes
+* moving satellite silhouettes
+
+These should be rare enough to feel special.
+
+================================================
+
+NEBULA SYSTEM
+
+================================================
+
+Create enormous distant nebula clouds.
+
+Use:
+
+* soft volumetric gradients
+* animated gas movement
+* subtle color shifts
+
+Colors:
+
+* deep violet
+* indigo
+* cyan
+* soft magenta
+
+Nebulae should never overpower the planets.
+
+================================================
+
+LIGHTING
+
+================================================
+
+Upgrade all lighting.
+
+Add:
+
+* bloom
+* atmospheric glow
+* subtle lens effects
+* light scattering
+* environmental reflections
+
+The world should feel premium and cinematic.
+
+================================================
+
+EXPLORATION REWARD
+
+================================================
+
+The universe should reward curiosity.
+
+Hidden interactions.
+
+Hidden constellations.
+
+Rare animations.
+
+Unexpected discoveries.
+
+The website should feel different every time somebody explores it.
+
+================================================
+
+FINAL GOAL
+
+================================================
+
+Transform the experience from a website with planets into a living universe that happens to contain a portfolio.
