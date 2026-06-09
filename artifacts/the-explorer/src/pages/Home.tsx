@@ -5,6 +5,7 @@ import SectionOverlay from "@/components/SectionOverlay";
 import Navigation from "@/components/Navigation";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { planetDragging } from "@/components/planets/Planet";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -20,8 +21,14 @@ const SECTIONS = [
 
 export default function Home() {
   const [activeSection, setActiveSection] = useState(0);
+  const activeSectionRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const snapLock = useRef(false);
 
+  // Keep ref in sync with state (so touch handler reads latest value without stale closure)
+  useEffect(() => { activeSectionRef.current = activeSection; }, [activeSection]);
+
+  // ── GSAP scroll triggers ────────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current) return;
     const sections = gsap.utils.toArray<HTMLElement>(".scroll-section");
@@ -30,7 +37,7 @@ export default function Home() {
         trigger: section,
         start: "top center",
         end: "bottom center",
-        onEnter: () => setActiveSection(i),
+        onEnter:     () => setActiveSection(i),
         onEnterBack: () => setActiveSection(i),
       });
     });
@@ -38,8 +45,54 @@ export default function Home() {
   }, []);
 
   const scrollToSection = (index: number) => {
-    document.querySelector(`#section-${index}`)?.scrollIntoView({ behavior: "smooth" });
+    const clamped = Math.max(0, Math.min(SECTIONS.length - 1, index));
+    document.querySelector(`#section-${clamped}`)?.scrollIntoView({ behavior: "smooth" });
   };
+
+  // ── Mobile swipe-to-snap ────────────────────────────────────────────────────
+  useEffect(() => {
+    let touchStartY = 0;
+    let touchStartX = 0;
+    let touchStartTime = 0;
+
+    function onTouchStart(e: TouchEvent) {
+      touchStartY = e.touches[0].clientY;
+      touchStartX = e.touches[0].clientX;
+      touchStartTime = Date.now();
+    }
+
+    function onTouchEnd(e: TouchEvent) {
+      // Don't snap if user was rotating a planet
+      if (planetDragging) return;
+
+      const dy = touchStartY - e.changedTouches[0].clientY;
+      const dx = touchStartX - e.changedTouches[0].clientX;
+      const elapsed = Date.now() - touchStartTime;
+
+      // Only snap on clearly vertical swipes (more vertical than horizontal)
+      // and only if the gesture was fast enough and long enough
+      const isVertical = Math.abs(dy) > Math.abs(dx) * 1.4;
+      const isFastSwipe = elapsed < 450 && Math.abs(dy) > 55;
+
+      if (isVertical && isFastSwipe && !snapLock.current) {
+        snapLock.current = true;
+        const next = dy > 0
+          ? Math.min(activeSectionRef.current + 1, SECTIONS.length - 1)
+          : Math.max(activeSectionRef.current - 1, 0);
+        scrollToSection(next);
+        // Prevent rapid double-snaps
+        setTimeout(() => { snapLock.current = false; }, 800);
+      }
+    }
+
+    // Use passive: true so we don't block the browser's default scroll behavior
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchend',   onTouchEnd,   { passive: true });
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchend',   onTouchEnd);
+    };
+  }, []);
 
   return (
     <div className="relative w-full" style={{ background: "transparent" }} ref={containerRef}>
