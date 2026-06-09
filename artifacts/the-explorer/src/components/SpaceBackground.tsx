@@ -121,10 +121,7 @@ function draw(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
     ctx.globalAlpha = 1;
   }
 
-  // 5. "VARSHINI MUPPALA" — the Easter egg ─────────────────────────────────
-  drawName(ctx, w, h, t);
-
-  // 6. Bright foreground stars (only 6) — very gentle twinkle
+  // 5. Bright foreground stars (only 6) — very gentle twinkle
   if (brightCache) {
     ctx.globalCompositeOperation = 'screen';
     for (const s of brightCache) {
@@ -152,65 +149,11 @@ function draw(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
   }
 }
 
-function drawName(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
-  ctx.save();
-  ctx.globalCompositeOperation = 'screen';
-  ctx.textAlign = 'center';
-
-  // Slow pulse — 30-second cycle
-  const pulse = 0.20 + 0.05 * Math.sin(t * 0.21);
-
-  // ── Primary: large "VARSHINI" in violet nebula (upper-centre-left) ─────────
-  const sz1 = Math.max(22, Math.floor(w * 0.052));
-  ctx.font = `200 ${sz1}px "Helvetica Neue", Arial, sans-serif`;
-  ctx.letterSpacing = `${Math.max(4, Math.floor(w * 0.008))}px`;
-  ctx.fillStyle = '#9966ee';
-  ctx.globalAlpha = pulse;
-  ctx.fillText('VARSHINI', w * 0.26, h * 0.36);
-
-  // ── Primary: "MUPPALA" in cyan nebula (right) ─────────────────────────────
-  const sz2 = Math.max(20, Math.floor(w * 0.048));
-  ctx.font = `200 ${sz2}px "Helvetica Neue", Arial, sans-serif`;
-  ctx.letterSpacing = `${Math.max(4, Math.floor(w * 0.007))}px`;
-  ctx.fillStyle = '#3399cc';
-  ctx.globalAlpha = pulse * 0.90;
-  ctx.fillText('MUPPALA', w * 0.78, h * 0.60);
-
-  // ── Secondary: full name, small, scattered ────────────────────────────────
-  const sz3 = Math.max(11, Math.floor(w * 0.020));
-  ctx.font = `300 ${sz3}px "Helvetica Neue", Arial, sans-serif`;
-  ctx.letterSpacing = `${Math.max(2, Math.floor(w * 0.003))}px`;
-
-  ctx.fillStyle = '#6644aa';
-  ctx.globalAlpha = pulse * 0.55;
-  ctx.fillText('VARSHINI MUPPALA', w * 0.56, h * 0.20);
-
-  ctx.fillStyle = '#224466';
-  ctx.globalAlpha = pulse * 0.48;
-  ctx.fillText('VARSHINI MUPPALA', w * 0.40, h * 0.78);
-
-  // ── Tertiary: giant near-invisible ghost behind everything ─────────────────
-  const sz4 = Math.max(36, Math.floor(w * 0.075));
-  ctx.font = `100 ${sz4}px "Helvetica Neue", Arial, sans-serif`;
-  ctx.letterSpacing = `${Math.max(6, Math.floor(w * 0.010))}px`;
-
-  ctx.fillStyle = '#aa77ff';
-  ctx.globalAlpha = 0.032 + 0.008 * Math.sin(t * 0.07);
-  ctx.fillText('VARSHINI', w * 0.38, h * 0.52);
-
-  ctx.fillStyle = '#4488bb';
-  ctx.globalAlpha = 0.028 + 0.006 * Math.sin(t * 0.055 + 0.9);
-  ctx.fillText('MUPPALA', w * 0.62, h * 0.48);
-
-  ctx.globalAlpha = 1;
-  ctx.restore();
-}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function SpaceBackground() {
   const canvasRef  = useRef<HTMLCanvasElement>(null);
   const startRef   = useRef(Date.now());
-  const lastDrawRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;

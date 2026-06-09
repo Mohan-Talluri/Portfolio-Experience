@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, Component, type ReactNode } from "react";
+import React, { useRef, useEffect, useState, Component, type ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import StarField from "./StarField";
@@ -8,6 +8,7 @@ import ConstellationSystem from "./ConstellationSystem";
 import SpaceEvents from "./SpaceEvents";
 import StardustTrail from "./StardustTrail";
 import BlackHole from "./BlackHole";
+import NameConstellation from "./NameConstellation";
 import { PLANET_POSITIONS, PLANET_CONFIGS } from "./planetData";
 
 class WebGLErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
@@ -22,8 +23,14 @@ class WebGLErrorBoundary extends Component<{ children: ReactNode }, { hasError: 
   }
 }
 
-// ─── Camera: spring-damper inertia + organic drift ────────────────────────────
-function CameraRig({ activeSection }: { activeSection: number }) {
+// ─── Camera: scroll navigation + planet zoom ─────────────────────────────────
+function CameraRig({
+  activeSection,
+  selectedPlanet,
+}: {
+  activeSection: number;
+  selectedPlanet: number | null;
+}) {
   const { camera, pointer } = useThree();
   const scrollPos   = useRef(0);
   const camPos      = useRef(new THREE.Vector3(0, 0, 16));
@@ -46,6 +53,30 @@ function CameraRig({ activeSection }: { activeSection: number }) {
   useFrame((state, delta) => {
     const t   = state.clock.elapsedTime;
     const dt  = Math.min(delta, 0.05);
+
+    // ── Planet zoom mode ─────────────────────────────────────────────────────
+    if (selectedPlanet !== null && selectedPlanet < PLANET_POSITIONS.length) {
+      const pp = PLANET_POSITIONS[selectedPlanet];
+      const pr = PLANET_CONFIGS[selectedPlanet].size;
+      // Position camera in front of planet, slightly above and to the side
+      const zoomTarget = new THREE.Vector3(
+        pp.x + pr * 0.4,
+        pp.y + pr * 0.3,
+        pp.z + pr * 3.2 + 7,
+      );
+      camPos.current.lerp(zoomTarget, dt * 2.2);
+      camera.position.copy(camPos.current);
+
+      // Also dampen camVel so return is smooth
+      camVel.current.multiplyScalar(1 - dt * 12);
+
+      const lookTarget = pp.clone();
+      lookTgt.current.lerp(lookTarget, dt * 5);
+      camera.lookAt(lookTgt.current);
+      return;
+    }
+
+    // ── Normal scroll navigation ─────────────────────────────────────────────
     const N   = PLANET_POSITIONS.length - 1;
     const sc  = scrollPos.current * N;
     const idx = Math.min(Math.floor(sc), N - 1);
@@ -77,7 +108,7 @@ function CameraRig({ activeSection }: { activeSection: number }) {
       .add(drift)
       .add(new THREE.Vector3(ptrLag.current.x * 2.0, ptrLag.current.y * 1.5, 0));
 
-    // Spring toward desired (gives momentum + inertia feel)
+    // Spring toward desired
     const disp = desired.clone().sub(camPos.current);
     camVel.current.addScaledVector(disp, 3.2 * dt);
     camVel.current.multiplyScalar(1 - 0.88 * dt);
@@ -96,7 +127,7 @@ function CameraRig({ activeSection }: { activeSection: number }) {
   return null;
 }
 
-// ─── Multi-layer parallax group ───────────────────────────────────────────────
+// ─── Parallax group ───────────────────────────────────────────────────────────
 function ParallaxGroup({ children, depth }: { children: ReactNode; depth: number }) {
   const ref = useRef<THREE.Group>(null);
   const { pointer } = useThree();
@@ -112,6 +143,16 @@ function ParallaxGroup({ children, depth }: { children: ReactNode; depth: number
   return <group ref={ref}>{children}</group>;
 }
 
+// ─── Invisible background sphere — click to deselect ─────────────────────────
+function BackgroundClickCatcher({ onDeselect }: { onDeselect: () => void }) {
+  return (
+    <mesh onClick={onDeselect}>
+      <sphereGeometry args={[450, 6, 6]} />
+      <meshBasicMaterial color="#000000" side={THREE.BackSide} transparent opacity={0} depthWrite={false} />
+    </mesh>
+  );
+}
+
 function webGLAvailable() {
   try {
     const c = document.createElement("canvas");
@@ -121,6 +162,15 @@ function webGLAvailable() {
 }
 
 export default function SpaceScene({ activeSection }: { activeSection: number }) {
+  const [selectedPlanet, setSelectedPlanet] = useState<number | null>(null);
+
+  // Escape key deselects
+  useEffect(() => {
+    const fn = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelectedPlanet(null); };
+    window.addEventListener('keydown', fn);
+    return () => window.removeEventListener('keydown', fn);
+  }, []);
+
   if (!webGLAvailable()) return <SpaceFallback />;
 
   return (
@@ -131,16 +181,18 @@ export default function SpaceScene({ activeSection }: { activeSection: number })
           gl={{
             antialias: false,
             powerPreference: "high-performance",
-            alpha: true,            // transparent canvas — shows SpaceBackground behind
+            alpha: true,
           }}
-          dpr={1.5}                 // fixed DPR — no resize flicker
+          dpr={1.5}
         >
-          {/* No background color — SpaceBackground HTML canvas shows through */}
           <ambientLight intensity={0.05} />
           <directionalLight position={[20, 15, 10]} intensity={1.3} color="#fff8f0" />
           <pointLight position={[0, 0, 0]} intensity={0.12} color="#6688ff" distance={60} />
 
-          {/* Layer 1 – deep background stars (barely move) */}
+          {/* Background click-catcher (deselect) */}
+          <BackgroundClickCatcher onDeselect={() => setSelectedPlanet(null)} />
+
+          {/* Layer 1 – stars */}
           <ParallaxGroup depth={0.08}>
             <StarField />
           </ParallaxGroup>
@@ -150,27 +202,53 @@ export default function SpaceScene({ activeSection }: { activeSection: number })
             <ConstellationSystem activeSection={activeSection} />
           </ParallaxGroup>
 
-          {/* Layer 3 – space events */}
+          {/* Name as constellation — always in background sky */}
+          <NameConstellation />
+
+          {/* Space events */}
           <SpaceEvents />
 
-          {/* Black hole — interactive, deep in scene */}
+          {/* Black hole */}
           <BlackHole position={[-20, 9, -38]} />
 
-          {/* Layer 4 – planets */}
+          {/* Planets */}
           {PLANET_POSITIONS.map((pos, i) => (
             <Planet
               key={i}
               position={pos}
               config={PLANET_CONFIGS[i]}
               active={activeSection === i}
+              selected={selectedPlanet === i}
+              onSelect={() => setSelectedPlanet(prev => prev === i ? null : i)}
             />
           ))}
 
-          <CameraRig activeSection={activeSection} />
+          <CameraRig activeSection={activeSection} selectedPlanet={selectedPlanet} />
         </Canvas>
 
-        {/* Foreground cosmic dust trail */}
+        {/* Foreground stardust cursor trail */}
         <StardustTrail />
+
+        {/* Hint shown when a planet is focused */}
+        {selectedPlanet !== null && (
+          <div
+            style={{
+              position: 'fixed',
+              bottom: 32,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              color: 'rgba(180,210,255,0.75)',
+              fontSize: 13,
+              fontFamily: 'sans-serif',
+              letterSpacing: '0.12em',
+              pointerEvents: 'none',
+              textShadow: '0 0 12px rgba(100,160,255,0.5)',
+              zIndex: 100,
+            }}
+          >
+            DRAG TO ROTATE &nbsp;·&nbsp; ESC OR CLICK SPACE TO EXIT
+          </div>
+        )}
       </>
     </WebGLErrorBoundary>
   );
