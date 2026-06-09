@@ -1,8 +1,19 @@
 import React, { useEffect, useRef } from 'react';
 
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  life: number;
+  maxLife: number;
+  brightness: number;
+}
+
 export default function StardustTrail() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -10,13 +21,17 @@ export default function StardustTrail() {
     if (!ctx) return;
 
     let animId: number;
-    let particles: {x: number, y: number, vx: number, vy: number, size: number, color: string, life: number, maxLife: number}[] = [];
-    const MAX_PARTICLES = 400;
-    const COLORS = ['#4F46E5', '#7C3AED', '#06B6D4', '#A78BFA', '#FFFFFF'];
+    let particles: Particle[] = [];
+    const MAX_PARTICLES = 120;
 
-    let lastMouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    let mouseX = window.innerWidth / 2;
+    let mouseY = window.innerHeight / 2;
+    let prevX = mouseX;
+    let prevY = mouseY;
+    let velX = 0;
+    let velY = 0;
     let isMoving = false;
-    let moveTimeout: any;
+    let moveTimer: ReturnType<typeof setTimeout>;
 
     const resize = () => {
       canvas.width = window.innerWidth;
@@ -28,66 +43,86 @@ export default function StardustTrail() {
     const onMove = (e: MouseEvent | TouchEvent) => {
       const x = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
       const y = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
-      
-      const dx = x - lastMouse.x;
-      const dy = y - lastMouse.y;
-      const velocity = Math.sqrt(dx*dx + dy*dy);
-      
-      const count = Math.min(15, Math.max(2, Math.floor(velocity * 0.2)));
-      const baseAngle = Math.atan2(dy, dx);
-      
-      for(let i=0; i<count; i++) {
-        if(particles.length >= MAX_PARTICLES) particles.shift(); // remove oldest
-        
-        const angle = baseAngle + (Math.random() - 0.5) * 1.5;
-        const speed = Math.random() * 2 + velocity * 0.05;
-        
-        particles.push({
-          x, y,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed,
-          size: Math.random() * (velocity > 10 ? 4 : 2) + 1,
-          color: COLORS[Math.floor(Math.random() * COLORS.length)],
-          life: 1,
-          maxLife: 0.8 + Math.random() * 0.7
-        });
+
+      velX = x - prevX;
+      velY = y - prevY;
+      prevX = x;
+      prevY = y;
+      mouseX = x;
+      mouseY = y;
+
+      const speed = Math.sqrt(velX * velX + velY * velY);
+
+      // Emit very subtle dust — only when moving fast enough
+      if (speed > 3 && particles.length < MAX_PARTICLES) {
+        const count = Math.min(4, Math.floor(speed * 0.12));
+        for (let i = 0; i < count; i++) {
+          // Dust drifts slightly opposite to motion, then slowly dissipates
+          const spread = (Math.random() - 0.5);
+          const backAngle = Math.atan2(velY, velX) + Math.PI + spread * 0.8;
+          const spd = Math.random() * 0.5 + 0.1;
+
+          particles.push({
+            x: x + (Math.random() - 0.5) * 6,
+            y: y + (Math.random() - 0.5) * 6,
+            vx: Math.cos(backAngle) * spd * (0.3 + Math.random() * 0.4),
+            vy: Math.sin(backAngle) * spd * (0.3 + Math.random() * 0.4),
+            size: 0.5 + Math.random() * 1.2,
+            life: 1.0,
+            maxLife: 1.2 + Math.random() * 1.8,
+            brightness: 0.4 + Math.random() * 0.6,
+          });
+        }
       }
-      
-      lastMouse = { x, y };
+
       isMoving = true;
-      clearTimeout(moveTimeout);
-      moveTimeout = setTimeout(() => isMoving = false, 100);
+      clearTimeout(moveTimer);
+      moveTimer = setTimeout(() => { isMoving = false; }, 80);
     };
 
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('touchmove', onMove);
+    window.addEventListener('mousemove', onMove, { passive: true });
+    window.addEventListener('touchmove', onMove, { passive: true });
 
     const loop = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      for(let i=particles.length-1; i>=0; i--) {
+
+      for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
-        
-        p.life -= 0.016 / p.maxLife; // approx 60fps
-        if(p.life <= 0) {
+
+        // Very slow fade
+        p.life -= 0.016 / p.maxLife;
+        if (p.life <= 0) {
           particles.splice(i, 1);
           continue;
         }
-        
-        p.vy += 0.05; // gravity
+
+        // Slow drift — no gravity
+        p.vx *= 0.985;
+        p.vy *= 0.985;
         p.x += p.vx;
         p.y += p.vy;
-        
-        ctx.globalAlpha = p.life;
-        ctx.fillStyle = Math.random() > 0.9 ? '#FFFFFF' : p.color; // Sparkle
+
+        // Eased opacity — quick fade in, slow fade out
+        const lifeFraction = p.life;
+        const alpha = lifeFraction < 0.15
+          ? lifeFraction / 0.15
+          : Math.pow(lifeFraction, 1.4);
+
+        // Monochromatic — slight blue-white tint for cosmic feel
+        const lum = Math.floor(200 + p.brightness * 55);
+        const b = Math.floor(220 + p.brightness * 35);
+
+        ctx.globalAlpha = alpha * p.brightness * 0.6;
+        ctx.fillStyle = `rgb(${lum},${lum},${b})`;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, p.size * lifeFraction, 0, Math.PI * 2);
         ctx.fill();
       }
+
       ctx.globalAlpha = 1;
-      
       animId = requestAnimationFrame(loop);
     };
+
     animId = requestAnimationFrame(loop);
 
     return () => {
@@ -95,13 +130,21 @@ export default function StardustTrail() {
       window.removeEventListener('resize', resize);
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('touchmove', onMove);
+      clearTimeout(moveTimer);
     };
   }, []);
 
   return (
-    <canvas 
+    <canvas
       ref={canvasRef}
-      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 50 }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+        zIndex: 60,
+      }}
     />
   );
 }

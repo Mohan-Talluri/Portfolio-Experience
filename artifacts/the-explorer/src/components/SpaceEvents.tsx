@@ -1,243 +1,308 @@
-import React, { useRef, useMemo, useEffect } from "react";
+import React, { useRef, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
-export default function SpaceEvents() {
-  const eventsRef = useRef<THREE.Group>(null);
-  
-  // Shooting Star refs
-  const shootingStarRef = useRef<THREE.Mesh>(null);
-  const ssMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
-  const ssState = useRef({
-    active: false,
-    timer: Math.random() * 12 + 8,
-    progress: 0,
-    duration: 0,
-    start: new THREE.Vector3(),
-    end: new THREE.Vector3(),
-  });
+const trailVert = `
+attribute float trailAlpha;
+varying float vTrailAlpha;
+void main(){
+  vTrailAlpha = trailAlpha;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`;
+const trailFrag = `
+uniform vec3 color;
+uniform float opacity;
+varying float vTrailAlpha;
+void main(){
+  gl_FragColor = vec4(color, opacity * vTrailAlpha);
+}
+`;
 
-  // Comet refs
-  const cometRef = useRef<THREE.Group>(null);
+function makeGlowTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 64;
+  const ctx = c.getContext('2d')!;
+  const g = ctx.createRadialGradient(32,32,0,32,32,32);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.15,'rgba(220,240,255,0.8)');
+  g.addColorStop(0.5, 'rgba(150,200,255,0.3)');
+  g.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,64,64);
+  return new THREE.CanvasTexture(c);
+}
+
+export default function SpaceEvents() {
+  const glowTex = useMemo(() => makeGlowTexture(), []);
+
+  // ---- Shooting Stars ----
+  const ssCount = 3;
+  const ssRefs = useRef<(THREE.Mesh | null)[]>(Array(ssCount).fill(null));
+  const ssTrailRefs = useRef<(THREE.LineSegments | null)[]>(Array(ssCount).fill(null));
+  const ssMatRefs = useRef<(THREE.MeshBasicMaterial | null)[]>(Array(ssCount).fill(null));
+  const ssTrailMatRefs = useRef<(THREE.ShaderMaterial | null)[]>(Array(ssCount).fill(null));
+  const ssStates = useRef(
+    Array.from({ length: ssCount }, (_, i) => ({
+      active: false,
+      timer: Math.random() * 10 + 6 + i * 4,
+      progress: 0,
+      duration: 0,
+      start: new THREE.Vector3(),
+      end: new THREE.Vector3(),
+    }))
+  );
+
+  // ---- Comet ----
+  const cometGroupRef = useRef<THREE.Group>(null);
   const cometState = useRef({
     active: false,
-    timer: Math.random() * 50 + 40,
+    timer: Math.random() * 45 + 35,
     progress: 0,
     duration: 0,
     start: new THREE.Vector3(),
     end: new THREE.Vector3(),
   });
 
-  // Supernova refs
-  const supernovaRef = useRef<THREE.Sprite>(null);
-  const supernovaState = useRef({
+  // ---- Pulsar ----
+  const pulsarRef = useRef<THREE.Sprite>(null);
+  const pulsarRingRef = useRef<THREE.Mesh>(null);
+  const pulsarState = useRef({
     active: false,
-    timer: Math.random() * 60 + 60,
+    timer: Math.random() * 80 + 60,
     progress: 0,
-    duration: 1.5,
-  });
-
-  // Satellite refs
-  const satelliteRef = useRef<THREE.Mesh>(null);
-  const satelliteState = useRef({
-    active: false,
-    timer: Math.random() * 60 + 120,
-    progress: 0,
-    duration: 0,
-    start: new THREE.Vector3(),
-    end: new THREE.Vector3(),
+    duration: 3.0,
+    pos: new THREE.Vector3(),
   });
 
   useFrame((state, delta) => {
-    // 1. Shooting Star
-    if (ssState.current.active) {
-      ssState.current.progress += delta / ssState.current.duration;
-      if (ssState.current.progress >= 1) {
-        ssState.current.active = false;
-        ssState.current.timer = Math.random() * 12 + 8;
-        if (shootingStarRef.current) shootingStarRef.current.visible = false;
-      } else {
-        if (shootingStarRef.current && ssMaterialRef.current) {
-          const p = ssState.current.progress;
-          const pos = new THREE.Vector3().lerpVectors(ssState.current.start, ssState.current.end, p);
-          shootingStarRef.current.position.copy(pos);
-          ssMaterialRef.current.opacity = Math.max(0, 1 - p * 1.5); // fade out
-        }
-      }
-    } else {
-      ssState.current.timer -= delta;
-      if (ssState.current.timer <= 0) {
-        ssState.current.active = true;
-        ssState.current.progress = 0;
-        ssState.current.duration = 0.3 + Math.random() * 0.5;
-        
-        const x = (Math.random() - 0.5) * 100;
-        const y = (Math.random() - 0.5) * 100;
-        const z = -50 - Math.random() * 100;
-        ssState.current.start.set(x, y + 40, z);
-        ssState.current.end.set(x - 30 - Math.random() * 30, y - 40 - Math.random() * 30, z);
-        
-        if (shootingStarRef.current && ssMaterialRef.current) {
-          shootingStarRef.current.visible = true;
-          shootingStarRef.current.lookAt(ssState.current.end);
-          ssMaterialRef.current.opacity = 1;
-        }
-      }
-    }
+    const t = state.clock.elapsedTime;
 
-    // 2. Comet
-    if (cometState.current.active) {
-      cometState.current.progress += delta / cometState.current.duration;
-      if (cometState.current.progress >= 1) {
-        cometState.current.active = false;
-        cometState.current.timer = Math.random() * 50 + 40;
-        if (cometRef.current) cometRef.current.visible = false;
-      } else {
-        if (cometRef.current) {
-          const p = cometState.current.progress;
-          const pos = new THREE.Vector3().lerpVectors(cometState.current.start, cometState.current.end, p);
-          cometRef.current.position.copy(pos);
-        }
-      }
-    } else {
-      cometState.current.timer -= delta;
-      if (cometState.current.timer <= 0) {
-        cometState.current.active = true;
-        cometState.current.progress = 0;
-        cometState.current.duration = 3 + Math.random() * 3;
-        
-        const x = (Math.random() - 0.5) * 200;
-        const y = 80 + Math.random() * 40;
-        const z = -100 - Math.random() * 100;
-        cometState.current.start.set(x, y, z);
-        cometState.current.end.set(x + 100 * (Math.random() > 0.5 ? 1 : -1), -80, z - 50);
-        
-        if (cometRef.current) {
-          cometRef.current.visible = true;
-          cometRef.current.lookAt(cometState.current.end);
-        }
-      }
-    }
+    // Shooting stars
+    ssStates.current.forEach((ss, i) => {
+      if (ss.active) {
+        ss.progress += delta / ss.duration;
+        if (ss.progress >= 1) {
+          ss.active = false;
+          ss.timer = Math.random() * 12 + 8;
+          const mesh = ssRefs.current[i];
+          if (mesh) mesh.visible = false;
+          const trail = ssTrailRefs.current[i];
+          if (trail) trail.visible = false;
+        } else {
+          const p = ss.progress;
+          const eased = 1 - Math.pow(1 - p, 2);
+          const pos = new THREE.Vector3().lerpVectors(ss.start, ss.end, eased);
 
-    // 3. Supernova
-    if (supernovaState.current.active) {
-      supernovaState.current.progress += delta / supernovaState.current.duration;
-      if (supernovaState.current.progress >= 1) {
-        supernovaState.current.active = false;
-        supernovaState.current.timer = Math.random() * 60 + 60;
-        if (supernovaRef.current) supernovaRef.current.visible = false;
-      } else {
-        if (supernovaRef.current) {
-          const p = supernovaState.current.progress;
-          // flash bright then fade
-          let opacity = 0;
-          let scale = 1;
-          if (p < 0.1) {
-            opacity = p / 0.1; // attack
-            scale = 1 + p * 10;
-          } else {
-            opacity = 1 - (p - 0.1) / 0.9; // decay
-            scale = 2 + (p - 0.1) * 2;
+          const mesh = ssRefs.current[i];
+          const mat  = ssMatRefs.current[i];
+          if (mesh && mat) {
+            mesh.position.copy(pos);
+            // Fade out near end, bright at start
+            mat.opacity = Math.max(0, 1 - p * 1.8) * 0.9;
           }
-          supernovaRef.current.material.opacity = opacity;
-          supernovaRef.current.scale.set(scale * 15, scale * 15, 1);
-          supernovaRef.current.material.color.setHSL(0.1 + p * 0.1, 1, 0.8 - p * 0.3); // white to yellow to red
+
+          // Trail — update end point to current pos
+          const trail = ssTrailRefs.current[i];
+          const trailMat = ssTrailMatRefs.current[i];
+          if (trail && trailMat) {
+            trail.visible = true;
+            const trailStart = new THREE.Vector3().lerpVectors(ss.start, ss.end, Math.max(0, eased - 0.25));
+            const geom = trail.geometry as THREE.BufferGeometry;
+            const pts = [trailStart.x, trailStart.y, trailStart.z, pos.x, pos.y, pos.z];
+            geom.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+            geom.setAttribute('trailAlpha', new THREE.Float32BufferAttribute([0, 1], 1));
+            geom.attributes.position.needsUpdate = true;
+            trailMat.uniforms.opacity.value = Math.max(0, 1 - p * 1.6) * 0.6;
+          }
+        }
+      } else {
+        ss.timer -= delta;
+        if (ss.timer <= 0) {
+          ss.active = true;
+          ss.progress = 0;
+          ss.duration = 0.4 + Math.random() * 0.5;
+
+          const x = (Math.random() - 0.5) * 120;
+          const y = 40 + Math.random() * 40;
+          const z = -30 - Math.random() * 80;
+          ss.start.set(x, y, z);
+          ss.end.set(x - 25 - Math.random() * 35, y - 45 - Math.random() * 25, z + Math.random() * 5);
+
+          const mesh = ssRefs.current[i];
+          if (mesh) { mesh.visible = true; mesh.position.copy(ss.start); }
+          const trail = ssTrailRefs.current[i];
+          if (trail) trail.visible = false;
+          const mat = ssMatRefs.current[i];
+          if (mat) mat.opacity = 1;
+        }
+      }
+    });
+
+    // Comet
+    const cs = cometState.current;
+    if (cs.active) {
+      cs.progress += delta / cs.duration;
+      if (cs.progress >= 1) {
+        cs.active = false;
+        cs.timer = Math.random() * 55 + 40;
+        if (cometGroupRef.current) cometGroupRef.current.visible = false;
+      } else {
+        if (cometGroupRef.current) {
+          const eased = cs.progress;
+          const pos = new THREE.Vector3().lerpVectors(cs.start, cs.end, eased);
+          cometGroupRef.current.position.copy(pos);
+          cometGroupRef.current.lookAt(cs.end);
+          cometGroupRef.current.rotation.x += Math.PI / 2;
         }
       }
     } else {
-      supernovaState.current.timer -= delta;
-      if (supernovaState.current.timer <= 0) {
-        supernovaState.current.active = true;
-        supernovaState.current.progress = 0;
-        if (supernovaRef.current) {
-          supernovaRef.current.position.set(
-            (Math.random() - 0.5) * 300,
-            (Math.random() - 0.5) * 200,
-            -250 - Math.random() * 100
-          );
-          supernovaRef.current.visible = true;
-        }
+      cs.timer -= delta;
+      if (cs.timer <= 0) {
+        cs.active = true;
+        cs.progress = 0;
+        cs.duration = 4 + Math.random() * 4;
+        const x = (Math.random() - 0.5) * 200;
+        const y = 60 + Math.random() * 30;
+        const z = -60 - Math.random() * 80;
+        cs.start.set(x, y, z);
+        cs.end.set(x + 80 * (Math.random() > 0.5 ? 1 : -1), -60, z - 30);
+        if (cometGroupRef.current) cometGroupRef.current.visible = true;
       }
     }
 
-    // 4. Satellite
-    if (satelliteState.current.active) {
-      satelliteState.current.progress += delta / satelliteState.current.duration;
-      if (satelliteState.current.progress >= 1) {
-        satelliteState.current.active = false;
-        satelliteState.current.timer = Math.random() * 60 + 120;
-        if (satelliteRef.current) satelliteRef.current.visible = false;
+    // Pulsar
+    const ps = pulsarState.current;
+    if (ps.active) {
+      ps.progress += delta / ps.duration;
+      if (ps.progress >= 1) {
+        ps.active = false;
+        ps.timer = Math.random() * 80 + 60;
+        if (pulsarRef.current) pulsarRef.current.visible = false;
+        if (pulsarRingRef.current) pulsarRingRef.current.visible = false;
       } else {
-        if (satelliteRef.current) {
-          const p = satelliteState.current.progress;
-          const pos = new THREE.Vector3().lerpVectors(satelliteState.current.start, satelliteState.current.end, p);
-          satelliteRef.current.position.copy(pos);
-          satelliteRef.current.rotation.x += 0.005;
-          satelliteRef.current.rotation.y += 0.01;
+        const p = ps.progress;
+        // Double pulse pattern
+        const pulse1 = Math.exp(-Math.pow((p - 0.15) * 15, 2));
+        const pulse2 = Math.exp(-Math.pow((p - 0.55) * 15, 2)) * 0.7;
+        const intensity = pulse1 + pulse2;
+
+        if (pulsarRef.current) {
+          pulsarRef.current.material.opacity = intensity * 0.9;
+          const s = 3 + intensity * 8;
+          pulsarRef.current.scale.set(s, s, 1);
+        }
+        if (pulsarRingRef.current) {
+          pulsarRingRef.current.visible = true;
+          const ring = p * 30;
+          pulsarRingRef.current.scale.set(ring, ring, ring);
+          (pulsarRingRef.current.material as THREE.MeshBasicMaterial).opacity = intensity * 0.4;
         }
       }
     } else {
-      satelliteState.current.timer -= delta;
-      if (satelliteState.current.timer <= 0) {
-        satelliteState.current.active = true;
-        satelliteState.current.progress = 0;
-        satelliteState.current.duration = 8 + Math.random() * 4;
-        
-        satelliteState.current.start.set(-150, (Math.random() - 0.5) * 50, -40 - Math.random() * 20);
-        satelliteState.current.end.set(150, (Math.random() - 0.5) * 50, -40 - Math.random() * 20);
-        
-        if (satelliteRef.current) {
-          satelliteRef.current.visible = true;
+      ps.timer -= delta;
+      if (ps.timer <= 0) {
+        ps.active = true;
+        ps.progress = 0;
+        ps.pos.set(
+          (Math.random() - 0.5) * 200,
+          (Math.random() - 0.5) * 150,
+          -200 - Math.random() * 150
+        );
+        if (pulsarRef.current) {
+          pulsarRef.current.position.copy(ps.pos);
+          pulsarRef.current.visible = true;
+        }
+        if (pulsarRingRef.current) {
+          pulsarRingRef.current.position.copy(ps.pos);
+          pulsarRingRef.current.visible = false;
+          pulsarRingRef.current.scale.set(1, 1, 1);
         }
       }
     }
   });
 
-  const supernovaTex = useMemo(() => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 64;
-    canvas.height = 64;
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-      grad.addColorStop(0, "rgba(255, 255, 255, 1)");
-      grad.addColorStop(0.2, "rgba(255, 255, 200, 0.8)");
-      grad.addColorStop(1, "rgba(255, 255, 255, 0)");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 64, 64);
-    }
-    return new THREE.CanvasTexture(canvas);
+  const trailGeom = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute([0,0,0,0,0,0], 3));
+    g.setAttribute('trailAlpha', new THREE.Float32BufferAttribute([0,1], 1));
+    return g;
   }, []);
 
   return (
-    <group ref={eventsRef}>
-      {/* Shooting Star */}
-      <mesh ref={shootingStarRef} visible={false}>
-        <cylinderGeometry args={[0.05, 0.2, 8, 4]} />
-        <meshBasicMaterial ref={ssMaterialRef} color="#ffffff" transparent blending={THREE.AdditiveBlending} />
-      </mesh>
+    <group>
+      {/* Shooting stars */}
+      {Array.from({ length: ssCount }, (_, i) => (
+        <group key={i}>
+          <mesh
+            ref={el => { ssRefs.current[i] = el; }}
+            visible={false}
+          >
+            <sphereGeometry args={[0.12, 6, 6]} />
+            <meshBasicMaterial
+              ref={el => { ssMatRefs.current[i] = el; }}
+              color="#ddeeff"
+              transparent
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+          <lineSegments
+            ref={el => { ssTrailRefs.current[i] = el as THREE.LineSegments; }}
+            visible={false}
+          >
+            <bufferGeometry
+              ref={(g) => {
+                if (g) {
+                  g.setAttribute('position', new THREE.Float32BufferAttribute([0,0,0,0,0,0], 3));
+                  g.setAttribute('trailAlpha', new THREE.Float32BufferAttribute([0,1], 1));
+                }
+              }}
+            />
+            <shaderMaterial
+              ref={el => { ssTrailMatRefs.current[i] = el; }}
+              uniforms={{
+                color: { value: new THREE.Color('#cce8ff') },
+                opacity: { value: 0 },
+              }}
+              vertexShader={trailVert}
+              fragmentShader={trailFrag}
+              transparent
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </lineSegments>
+        </group>
+      ))}
 
       {/* Comet */}
-      <group ref={cometRef} visible={false}>
-        <mesh>
-          <sphereGeometry args={[0.4, 8, 8]} />
-          <meshBasicMaterial color="#ffffff" />
+      <group ref={cometGroupRef} visible={false}>
+        <sprite scale={[1.5, 1.5, 1]}>
+          <spriteMaterial map={glowTex} color="#ffffff" transparent opacity={0.9} blending={THREE.AdditiveBlending} depthWrite={false} />
+        </sprite>
+        {/* Ion tail — long thin cone */}
+        <mesh position={[0, -6, 0]}>
+          <coneGeometry args={[0.6, 12, 8, 1, true]} />
+          <meshBasicMaterial color="#88ccff" transparent opacity={0.15} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} />
         </mesh>
         <mesh position={[0, -4, 0]}>
-          <coneGeometry args={[1.5, 8, 8]} />
-          <meshBasicMaterial color="#aaffff" transparent opacity={0.3} blending={THREE.AdditiveBlending} />
+          <coneGeometry args={[1.2, 8, 8, 1, true]} />
+          <meshBasicMaterial color="#aaddff" transparent opacity={0.08} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} />
+        </mesh>
+        {/* Dust tail — slightly curved different direction */}
+        <mesh position={[1.5, -5, 0]} rotation={[0, 0, 0.3]}>
+          <coneGeometry args={[1.0, 10, 6, 1, true]} />
+          <meshBasicMaterial color="#ffeecc" transparent opacity={0.07} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} />
         </mesh>
       </group>
 
-      {/* Supernova */}
-      <sprite ref={supernovaRef} visible={false}>
-        <spriteMaterial map={supernovaTex} color="#ffffff" transparent blending={THREE.AdditiveBlending} depthWrite={false} />
+      {/* Pulsar */}
+      <sprite ref={pulsarRef} visible={false}>
+        <spriteMaterial map={glowTex} color="#aaccff" transparent blending={THREE.AdditiveBlending} depthWrite={false} />
       </sprite>
-
-      {/* Satellite */}
-      <mesh ref={satelliteRef} visible={false}>
-        <boxGeometry args={[0.8, 0.1, 0.4]} />
-        <meshBasicMaterial color="#111111" />
+      <mesh ref={pulsarRingRef} visible={false}>
+        <ringGeometry args={[0.8, 1, 64]} />
+        <meshBasicMaterial color="#88aaff" transparent blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>
     </group>
   );
