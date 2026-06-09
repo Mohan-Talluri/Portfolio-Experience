@@ -1,6 +1,5 @@
 {
   "buildCommand": "pnpm install --frozen-lockfile && pnpm --filter @workspace/the-explorer run build",
-  "outputDirectory": "artifacts/the-explorer/dist/public",
-  "installCommand": "pnpm install --frozen-lockfile",
-  "framework": "vite"
+  "outputDirectory": "artifacts/the-explorer/dist",
+  "installCommand": "pnpm install --frozen-lockfile"
 }
