@@ -1,255 +1,244 @@
 import React, { useEffect, useRef } from 'react';
 
-const NAME = 'VARSHINI MUPPALA';
+// ─── Static star cache (generated once per viewport size) ─────────────────────
+let starCache: { x: number; y: number; r: number; base: number; phase: number }[] | null = null;
+let brightCache: { x: number; y: number; r: number; col: string; phase: number }[] | null = null;
+let lastW = 0, lastH = 0;
 
-function drawBackground(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
-  ctx.clearRect(0, 0, w, h);
+function buildCaches(w: number, h: number) {
+  if (w === lastW && h === lastH) return;
+  lastW = w; lastH = h;
 
-  // ── Deep space base ──────────────────────────────────────────────
-  const bg = ctx.createRadialGradient(w * 0.5, h * 0.45, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.9);
-  bg.addColorStop(0,   '#03061a');
-  bg.addColorStop(0.4, '#010410');
-  bg.addColorStop(1,   '#000208');
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, w, h);
+  // Only 350 stars — subtle field, not overwhelming
+  starCache = Array.from({ length: 350 }, () => ({
+    x: Math.random() * w,
+    y: Math.random() * h,
+    r: 0.4 + Math.random() * Math.random() * 1.6,
+    base: 0.4 + Math.random() * 0.55,
+    phase: Math.random() * Math.PI * 2,
+  }));
 
-  // ── Milky Way band ───────────────────────────────────────────────
-  ctx.save();
-  ctx.globalCompositeOperation = 'screen';
-  const mwGrad = ctx.createLinearGradient(w * 0.02, h * 0.08, w * 0.98, h * 0.92);
-  mwGrad.addColorStop(0,    'rgba(10,15,50,0)');
-  mwGrad.addColorStop(0.18, 'rgba(30,40,100,0.18)');
-  mwGrad.addColorStop(0.32, 'rgba(55,60,160,0.28)');
-  mwGrad.addColorStop(0.5,  'rgba(70,80,200,0.35)');
-  mwGrad.addColorStop(0.68, 'rgba(55,60,160,0.28)');
-  mwGrad.addColorStop(0.82, 'rgba(30,40,100,0.18)');
-  mwGrad.addColorStop(1,    'rgba(10,15,50,0)');
-  ctx.fillStyle = mwGrad;
-  ctx.fillRect(0, 0, w, h);
-  ctx.restore();
-
-  // ── Main nebulae ─────────────────────────────────────────────────
-  ctx.globalCompositeOperation = 'screen';
-
-  const breath = 1 + 0.04 * Math.sin(t * 0.12);
-  const breath2 = 1 + 0.03 * Math.sin(t * 0.09 + 1.5);
-
-  // Nebula A — large violet/indigo (upper left + center)
-  drawNebula(ctx, w * 0.22, h * 0.28, w * 0.55 * breath, h * 0.50 * breath, '#2A1260', 0.85);
-  drawNebula(ctx, w * 0.12, h * 0.35, w * 0.38, h * 0.38, '#3D1888', 0.65);
-  drawNebula(ctx, w * 0.32, h * 0.20, w * 0.28, h * 0.28, '#5522AA', 0.45);
-
-  // Nebula B — cyan/teal (right + lower right)
-  drawNebula(ctx, w * 0.78, h * 0.62, w * 0.48 * breath2, h * 0.42 * breath2, '#002244', 0.90);
-  drawNebula(ctx, w * 0.85, h * 0.50, w * 0.35, h * 0.32, '#003366', 0.70);
-  drawNebula(ctx, w * 0.65, h * 0.72, w * 0.30, h * 0.28, '#004455', 0.55);
-
-  // Nebula C — magenta accent (center)
-  drawNebula(ctx, w * 0.50, h * 0.50, w * 0.30, h * 0.28, '#3A0022', 0.60);
-  drawNebula(ctx, w * 0.58, h * 0.42, w * 0.22, h * 0.22, '#4A0030', 0.45);
-
-  // Nebula D — deep blue streaks (top right)
-  drawNebula(ctx, w * 0.72, h * 0.18, w * 0.32, h * 0.25, '#0A1A5A', 0.70);
-  drawNebula(ctx, w * 0.82, h * 0.12, w * 0.24, h * 0.20, '#102260', 0.50);
-
-  // Nebula E — indigo (lower left)
-  drawNebula(ctx, w * 0.18, h * 0.72, w * 0.35, h * 0.28, '#180A44', 0.55);
-
-  ctx.globalCompositeOperation = 'source-over';
-
-  // ── Stars ────────────────────────────────────────────────────────
-  drawStars(ctx, w, h, t);
-
-  // ── "VARSHINI MUPPALA" embedded in nebulae ───────────────────────
-  drawName(ctx, w, h, t);
-
-  // ── Bright foreground stars ──────────────────────────────────────
-  drawBrightStars(ctx, w, h, t);
+  // Only 6 bright foreground stars with diffraction spikes
+  const cols = ['#ffffff', '#cce4ff', '#fff4e0', '#ffd6aa'];
+  brightCache = Array.from({ length: 6 }, () => ({
+    x: Math.random() * w,
+    y: Math.random() * h,
+    r: 2.2 + Math.random() * 1.8,
+    col: cols[Math.floor(Math.random() * cols.length)],
+    phase: Math.random() * Math.PI * 2,
+  }));
 }
 
-function drawNebula(
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function rgba(hex: string, a: number) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function nebula(
   ctx: CanvasRenderingContext2D,
   cx: number, cy: number,
   rw: number, rh: number,
-  color: string,
-  alpha: number
+  hex: string,
+  alpha: number,
 ) {
   const r = Math.max(rw, rh) * 0.5;
-  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-  grad.addColorStop(0,    hexToRgba(color, alpha * 0.9));
-  grad.addColorStop(0.3,  hexToRgba(color, alpha * 0.55));
-  grad.addColorStop(0.6,  hexToRgba(color, alpha * 0.22));
-  grad.addColorStop(0.85, hexToRgba(color, alpha * 0.07));
-  grad.addColorStop(1,    'rgba(0,0,0,0)');
-
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  g.addColorStop(0,    rgba(hex, alpha));
+  g.addColorStop(0.35, rgba(hex, alpha * 0.55));
+  g.addColorStop(0.65, rgba(hex, alpha * 0.20));
+  g.addColorStop(1,    'rgba(0,0,0,0)');
   ctx.save();
   ctx.translate(cx, cy);
   ctx.scale(rw / r, rh / r);
-  ctx.fillStyle = grad;
   ctx.beginPath();
   ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fillStyle = g;
   ctx.fill();
   ctx.restore();
 }
 
-function hexToRgba(hex: string, alpha: number): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
+// ─── Full frame draw ──────────────────────────────────────────────────────────
+function draw(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
+  // 1. Base
+  ctx.fillStyle = '#010210';
+  ctx.fillRect(0, 0, w, h);
 
-// Pre-generated star positions
-let starCache: { x: number; y: number; size: number; brightness: number; phase: number }[] | null = null;
+  // 2. Milky-way band (diagonal, one draw)
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const mw = ctx.createLinearGradient(w * 0.05, h * 0.1, w * 0.95, h * 0.9);
+  mw.addColorStop(0,    'rgba(0,0,0,0)');
+  mw.addColorStop(0.22, 'rgba(28,36,100,0.20)');
+  mw.addColorStop(0.38, 'rgba(48,55,150,0.32)');
+  mw.addColorStop(0.50, 'rgba(60,70,190,0.38)');
+  mw.addColorStop(0.62, 'rgba(48,55,150,0.32)');
+  mw.addColorStop(0.78, 'rgba(28,36,100,0.20)');
+  mw.addColorStop(1,    'rgba(0,0,0,0)');
+  ctx.fillStyle = mw;
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
 
-function drawStars(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
-  if (!starCache) {
-    starCache = Array.from({ length: 2800 }, () => ({
-      x: Math.random(),
-      y: Math.random(),
-      size: 0.3 + Math.random() * Math.random() * 2.2,
-      brightness: 0.3 + Math.random() * 0.7,
-      phase: Math.random() * Math.PI * 2,
-    }));
-  }
+  // 3. Nebulae — slow breath
+  const b1 = 1 + 0.03 * Math.sin(t * 0.08);
+  const b2 = 1 + 0.025 * Math.sin(t * 0.065 + 1.2);
 
-  for (const s of starCache) {
-    const twinkle = s.brightness * (0.6 + 0.4 * Math.sin(t * (0.8 + s.phase * 0.5) + s.phase));
-    ctx.globalAlpha = twinkle;
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(s.x * w, s.y * h, s.size, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-}
+  ctx.globalCompositeOperation = 'screen';
 
-let brightStarCache: { x: number; y: number; size: number; color: string; phase: number }[] | null = null;
+  // Violet/indigo — upper left (where VARSHINI lives)
+  nebula(ctx, w * 0.20, h * 0.28, w * 0.52 * b1, h * 0.48 * b1, '#281060', 0.90);
+  nebula(ctx, w * 0.10, h * 0.34, w * 0.32,       h * 0.34,       '#3a1580', 0.68);
+  nebula(ctx, w * 0.30, h * 0.18, w * 0.26,       h * 0.24,       '#5022aa', 0.48);
 
-function drawBrightStars(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
-  const colors = ['#ffffff', '#aaccff', '#ffeedd', '#ffcc99', '#cceeff'];
-  if (!brightStarCache) {
-    brightStarCache = Array.from({ length: 35 }, () => ({
-      x: Math.random(),
-      y: Math.random(),
-      size: 1.5 + Math.random() * 2.5,
-      color: colors[Math.floor(Math.random() * colors.length)],
-      phase: Math.random() * Math.PI * 2,
-    }));
-  }
+  // Cyan/teal — right (where MUPPALA lives)
+  nebula(ctx, w * 0.80, h * 0.60, w * 0.44 * b2, h * 0.40 * b2, '#002244', 0.92);
+  nebula(ctx, w * 0.88, h * 0.48, w * 0.32,       h * 0.28,       '#003366', 0.72);
+  nebula(ctx, w * 0.66, h * 0.70, w * 0.28,       h * 0.26,       '#004455', 0.55);
 
-  for (const s of brightStarCache) {
-    const twinkle = 0.7 + 0.3 * Math.sin(t * 1.2 + s.phase);
-    const sx = s.x * w;
-    const sy = s.y * h;
+  // Magenta accent — centre
+  nebula(ctx, w * 0.50, h * 0.50, w * 0.28,       h * 0.26,       '#3a0020', 0.62);
 
-    // Diffraction cross
-    const crossLen = s.size * 4;
-    ctx.globalAlpha = twinkle * 0.4;
-    ctx.strokeStyle = s.color;
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(sx - crossLen, sy);
-    ctx.lineTo(sx + crossLen, sy);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(sx, sy - crossLen);
-    ctx.lineTo(sx, sy + crossLen);
-    ctx.stroke();
+  // Deep blue — top right
+  nebula(ctx, w * 0.74, h * 0.16, w * 0.30,       h * 0.22,       '#0a1a5a', 0.70);
 
-    // Core
-    const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, s.size * 3);
-    grad.addColorStop(0, s.color);
-    grad.addColorStop(0.3, hexToRgba('#88aaff', 0.5));
-    grad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.globalAlpha = twinkle;
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(sx, sy, s.size * 3, 0, Math.PI * 2);
-    ctx.fill();
+  // Indigo — lower left
+  nebula(ctx, w * 0.16, h * 0.74, w * 0.32,       h * 0.26,       '#180a44', 0.55);
+
+  ctx.globalCompositeOperation = 'source-over';
+
+  // 4. Stars — very subtle twinkle (amplitude 0.08, not 0.4)
+  if (starCache) {
+    for (const s of starCache) {
+      const tw = s.base + 0.08 * Math.sin(t * 0.9 + s.phase);
+      ctx.globalAlpha = tw;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.globalAlpha = 1;
+  }
+
+  // 5. "VARSHINI MUPPALA" — the Easter egg ─────────────────────────────────
+  drawName(ctx, w, h, t);
+
+  // 6. Bright foreground stars (only 6) — very gentle twinkle
+  if (brightCache) {
+    ctx.globalCompositeOperation = 'screen';
+    for (const s of brightCache) {
+      const tw = 0.80 + 0.12 * Math.sin(t * 0.7 + s.phase);
+      // cross
+      ctx.globalAlpha = tw * 0.28;
+      ctx.strokeStyle = s.col;
+      ctx.lineWidth = 0.7;
+      const cl = s.r * 4.5;
+      ctx.beginPath(); ctx.moveTo(s.x - cl, s.y); ctx.lineTo(s.x + cl, s.y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(s.x, s.y - cl); ctx.lineTo(s.x, s.y + cl); ctx.stroke();
+      // core glow
+      const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r * 3.5);
+      g.addColorStop(0, s.col);
+      g.addColorStop(0.4, rgba('#6688ff', 0.45));
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = tw;
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r * 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
   }
 }
 
 function drawName(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
-  // The name is drawn multiple ways — large ghost text AND stars forming letters
-
+  ctx.save();
   ctx.globalCompositeOperation = 'screen';
-
-  // Large background ghost text — woven into nebula A (violet)
-  const namePulse = 0.055 + 0.015 * Math.sin(t * 0.2);
-  const fontSize1 = Math.max(28, Math.floor(w * 0.065));
-  ctx.font = `100 ${fontSize1}px "Helvetica Neue", Arial, sans-serif`;
-  ctx.letterSpacing = `${Math.floor(w * 0.008)}px`;
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#7744CC';
-  ctx.globalAlpha = namePulse;
-  ctx.fillText('VARSHINI', w * 0.28, h * 0.38);
 
-  // Name in cyan area (nebula B)
-  ctx.fillStyle = '#2288BB';
-  ctx.globalAlpha = namePulse * 0.9;
-  ctx.fillText('MUPPALA', w * 0.72, h * 0.62);
+  // Slow pulse — 30-second cycle
+  const pulse = 0.20 + 0.05 * Math.sin(t * 0.21);
 
-  // Smaller repeat — scattered across scene for depth
-  const fontSize2 = Math.max(14, Math.floor(w * 0.028));
-  ctx.font = `100 ${fontSize2}px "Helvetica Neue", Arial, sans-serif`;
+  // ── Primary: large "VARSHINI" in violet nebula (upper-centre-left) ─────────
+  const sz1 = Math.max(22, Math.floor(w * 0.052));
+  ctx.font = `200 ${sz1}px "Helvetica Neue", Arial, sans-serif`;
+  ctx.letterSpacing = `${Math.max(4, Math.floor(w * 0.008))}px`;
+  ctx.fillStyle = '#9966ee';
+  ctx.globalAlpha = pulse;
+  ctx.fillText('VARSHINI', w * 0.26, h * 0.36);
 
-  ctx.fillStyle = '#5533AA';
-  ctx.globalAlpha = namePulse * 0.45;
-  ctx.fillText('VARSHINI MUPPALA', w * 0.55, h * 0.22);
+  // ── Primary: "MUPPALA" in cyan nebula (right) ─────────────────────────────
+  const sz2 = Math.max(20, Math.floor(w * 0.048));
+  ctx.font = `200 ${sz2}px "Helvetica Neue", Arial, sans-serif`;
+  ctx.letterSpacing = `${Math.max(4, Math.floor(w * 0.007))}px`;
+  ctx.fillStyle = '#3399cc';
+  ctx.globalAlpha = pulse * 0.90;
+  ctx.fillText('MUPPALA', w * 0.78, h * 0.60);
 
-  ctx.fillStyle = '#113366';
-  ctx.globalAlpha = namePulse * 0.40;
-  ctx.fillText('VARSHINI MUPPALA', w * 0.38, h * 0.78);
+  // ── Secondary: full name, small, scattered ────────────────────────────────
+  const sz3 = Math.max(11, Math.floor(w * 0.020));
+  ctx.font = `300 ${sz3}px "Helvetica Neue", Arial, sans-serif`;
+  ctx.letterSpacing = `${Math.max(2, Math.floor(w * 0.003))}px`;
 
-  // Very large barely-visible ghost
-  const fontSize3 = Math.max(48, Math.floor(w * 0.10));
-  ctx.font = `100 ${fontSize3}px "Helvetica Neue", Arial, sans-serif`;
-  ctx.globalAlpha = 0.022 + 0.008 * Math.sin(t * 0.08);
-  ctx.fillStyle = '#9966FF';
-  ctx.fillText('VARSHINI', w * 0.35, h * 0.55);
+  ctx.fillStyle = '#6644aa';
+  ctx.globalAlpha = pulse * 0.55;
+  ctx.fillText('VARSHINI MUPPALA', w * 0.56, h * 0.20);
 
-  ctx.globalAlpha = 0.018 + 0.006 * Math.sin(t * 0.06 + 1.0);
-  ctx.fillStyle = '#3388CC';
-  ctx.fillText('MUPPALA', w * 0.65, h * 0.5);
+  ctx.fillStyle = '#224466';
+  ctx.globalAlpha = pulse * 0.48;
+  ctx.fillText('VARSHINI MUPPALA', w * 0.40, h * 0.78);
+
+  // ── Tertiary: giant near-invisible ghost behind everything ─────────────────
+  const sz4 = Math.max(36, Math.floor(w * 0.075));
+  ctx.font = `100 ${sz4}px "Helvetica Neue", Arial, sans-serif`;
+  ctx.letterSpacing = `${Math.max(6, Math.floor(w * 0.010))}px`;
+
+  ctx.fillStyle = '#aa77ff';
+  ctx.globalAlpha = 0.032 + 0.008 * Math.sin(t * 0.07);
+  ctx.fillText('VARSHINI', w * 0.38, h * 0.52);
+
+  ctx.fillStyle = '#4488bb';
+  ctx.globalAlpha = 0.028 + 0.006 * Math.sin(t * 0.055 + 0.9);
+  ctx.fillText('MUPPALA', w * 0.62, h * 0.48);
 
   ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = 'source-over';
+  ctx.restore();
 }
 
+// ─── Component ────────────────────────────────────────────────────────────────
 export default function SpaceBackground() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const startRef = useRef(Date.now());
+  const canvasRef  = useRef<HTMLCanvasElement>(null);
+  const startRef   = useRef(Date.now());
+  const lastDrawRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) return;
 
-    let animId: number;
-
     const resize = () => {
-      canvas.width = window.innerWidth;
+      canvas.width  = window.innerWidth;
       canvas.height = window.innerHeight;
-      // Clear caches on resize so positions recalculate
-      starCache = null;
-      brightStarCache = null;
+      starCache   = null;   // rebuild on next frame
+      brightCache = null;
+      buildCaches(canvas.width, canvas.height);
     };
     resize();
-    window.addEventListener('resize', resize);
+    window.addEventListener('resize', resize, { passive: true });
 
+    let raf: number;
     const loop = () => {
+      raf = requestAnimationFrame(loop);
       const t = (Date.now() - startRef.current) / 1000;
-      drawBackground(ctx, canvas.width, canvas.height, t);
-      animId = requestAnimationFrame(loop);
+      buildCaches(canvas.width, canvas.height);
+      draw(ctx, canvas.width, canvas.height, t);
     };
-    animId = requestAnimationFrame(loop);
+    raf = requestAnimationFrame(loop);
 
     return () => {
-      cancelAnimationFrame(animId);
+      cancelAnimationFrame(raf);
       window.removeEventListener('resize', resize);
     };
   }, []);
@@ -264,6 +253,7 @@ export default function SpaceBackground() {
         height: '100%',
         zIndex: 0,
         display: 'block',
+        pointerEvents: 'none',
       }}
     />
   );

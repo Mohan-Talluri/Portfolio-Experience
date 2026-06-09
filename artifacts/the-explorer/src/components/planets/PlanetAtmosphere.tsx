@@ -101,6 +101,7 @@ export default function PlanetAtmosphere({ size, color, active, type }: PlanetAt
       fragmentShader: atmFrag,
       transparent:    true,
       depthWrite:     false,
+      depthTest:      false,   // ← eliminates depth-sort flickering
       side:           THREE.BackSide,
       blending:       THREE.AdditiveBlending,
     });
@@ -114,6 +115,7 @@ export default function PlanetAtmosphere({ size, color, active, type }: PlanetAt
       fragmentShader: glowFrag,
       transparent:    true,
       depthWrite:     false,
+      depthTest:      false,   // ← eliminates depth-sort flickering
       side:           THREE.BackSide,
       blending:       THREE.AdditiveBlending,
     });
@@ -136,11 +138,11 @@ export default function PlanetAtmosphere({ size, color, active, type }: PlanetAt
   return (
     <group>
       <mesh ref={atmRef} scale={[1.08, 1.08, 1.08]}>
-        <sphereGeometry args={[size, 48, 48]} />
+        <sphereGeometry args={[size, 32, 32]} />
         <primitive object={atmMat} attach="material" />
       </mesh>
       <mesh ref={glowRef} scale={[1.45, 1.45, 1.45]}>
-        <sphereGeometry args={[size, 32, 32]} />
+        <sphereGeometry args={[size, 24, 24]} />
         <primitive object={glowMat} attach="material" />
       </mesh>
     </group>

@@ -386,7 +386,7 @@ export default function Planet({ position, config, active }: PlanetProps) {
     <group position={position}>
       {/* Main planet sphere — sphereGeometry for clean silhouette */}
       <mesh ref={meshRef}>
-        <sphereGeometry args={[r, 96, 96]} />
+        <sphereGeometry args={[r, 64, 64]} />
         <primitive object={mat} attach="material" />
       </mesh>
 

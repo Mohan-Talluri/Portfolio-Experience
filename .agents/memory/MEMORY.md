@@ -1,0 +1,2 @@
+- [Space portfolio blink fixes](space-blink-fixes.md) — EffectComposer+alpha:true causes context loss blink; BackSide transparent atmospheres need depthTest:false.
+- [StarField GPU budget](starfield-gpu.md) — 13K stars caused WebGL context loss; safe budget is ~3K stars in a single merged draw call.
