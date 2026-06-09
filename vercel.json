@@ -1,5 +1,4 @@
 {
-  "rootDirectory": "artifacts/the-explorer",
-  "buildCommand": "cd ../.. && pnpm install --frozen-lockfile && pnpm --filter @workspace/the-explorer run build",
+  "buildCommand": "pnpm install --frozen-lockfile && pnpm --filter @workspace/the-explorer run build",
   "outputDirectory": "dist"
 }
