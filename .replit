@@ -33,7 +33,7 @@ args = "cd artifacts/the-explorer && PORT=5173 BASE_PATH=/ pnpm dev"
 waitForPort = 5173
 
 [agent]
-stack = "PNPM_WORKSPACE"
+stack = "BEST_EFFORT_FALLBACK"
 expertMode = true
 
 [postMerge]
